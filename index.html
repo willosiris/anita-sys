@@ -1,0 +1,3663 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ANAROSA - Sistema de Compras, Ventas y Almacén de Repuestos</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --font-editorial: Georgia, Cambria, "Times New Roman", Times, serif;
+      --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      font-family: var(--font-editorial);
+      background-color: #fcfcfc;
+      color: #111827;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body.mode-sans {
+      font-family: var(--font-sans);
+    }
+
+    /* Fondo azul marino con cuadrícula sutil del menú lateral izquierdo y login */
+    .sidebar-navy {
+      background-color: #101929;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.18s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .input-clean {
+      border: 1px solid #e5e7eb;
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      background-color: #ffffff;
+      color: #111827;
+      transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+    }
+    .input-clean:focus {
+      outline: none;
+      border-color: #111827;
+      box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.08);
+    }
+    .input-clean:disabled, .input-clean[readonly] {
+      background-color: #f3f4f6;
+      color: #6b7280;
+      cursor: not-allowed;
+    }
+
+    /* Estilos específicos para Impresión de Reportes (Semanal, Mensual, Anual) */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #print-report-area, #print-report-area * {
+        visibility: visible;
+      }
+      #print-report-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white !important;
+        color: black !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+
+  <!-- =========================================================================
+       PANTALLA DE LOGIN PRINCIPAL (CON BLOQUEO DE 1 MINUTO AL 3ER INTENTO)
+       ========================================================================= -->
+  <div id="login-screen" class="fixed inset-0 sidebar-navy z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-md w-full p-7 fade-in my-auto">
+      <!-- Logo Geométrico ANAROSA idéntico al del Sidebar -->
+      <div class="flex flex-col items-center justify-center text-center mb-6">
+        <div class="bg-gray-50 border border-gray-100 rounded-2xl p-4 mb-3 shadow-inner">
+          <svg class="w-20 h-20 mx-auto" viewBox="0 0 120 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="18,42 36,32 36,52 18,62" fill="#7c8594" />
+            <polygon points="44,27 64,15 64,35 44,47" fill="#7c8594" />
+            <polygon points="72,12 94,0 94,20 72,32" fill="#7c8594" />
+            <polygon points="28,45 44,36 44,85 28,85" fill="#102542" />
+            <polygon points="55,30 72,20 72,92 55,92" fill="#102542" />
+            <polygon points="83,14 102,4 102,100 83,100" fill="#102542" />
+            <circle cx="36" cy="94" r="5" fill="#7c8594" />
+            <circle cx="36" cy="94" r="2" fill="#ffffff" />
+          </svg>
+        </div>
+        <div class="text-[#101929] font-sans text-2xl font-bold tracking-[0.18em] leading-tight">
+          ANAROSA
+        </div>
+        <div class="text-[#4b5563] font-sans text-[10px] tracking-[0.22em] font-semibold mt-0.5 uppercase">
+          CONTROL DE REPUESTOS Y ACCESORIOS
+        </div>
+        <p class="text-xs text-gray-500 mt-2">Ingresa tus credenciales para acceder al sistema</p>
+      </div>
+
+      <!-- Alerta de bloqueo por 3 intentos fallidos -->
+      <div id="login-lockout-banner" class="hidden mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs">
+        <div class="flex items-center gap-2 font-bold mb-1">
+          <i data-lucide="shield-alert" class="w-4 h-4 text-red-600 flex-shrink-0"></i>
+          <span>Acceso bloqueado temporalmente</span>
+        </div>
+        <p class="text-[11px] text-red-700">
+          Has superado los 3 intentos fallidos permitidos. Por seguridad, espera <strong id="login-lockout-timer" class="font-mono text-sm underline">01:00</strong> para volver a intentar.
+        </p>
+      </div>
+
+      <!-- Mensaje de error de intento -->
+      <div id="login-error-msg" class="hidden mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+        <span id="login-error-text">Usuario o contraseña incorrectos.</span>
+      </div>
+
+      <form id="login-form" onsubmit="handleLoginSubmit(event)" class="space-y-4 text-xs">
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1.5">Usuario</label>
+          <div class="relative">
+            <input type="text" id="login-username" placeholder="Ej. ANAROSA" class="input-clean w-full pl-9 py-2.5 text-sm font-sans" required autocomplete="username" />
+            <i data-lucide="user" class="w-4 h-4 text-gray-400 absolute left-3 top-3"></i>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1.5">Contraseña</label>
+          <div class="relative">
+            <input type="password" id="login-password" placeholder="••••••••" class="input-clean w-full pl-9 pr-10 py-2.5 text-sm font-sans" required autocomplete="current-password" />
+            <i data-lucide="lock" class="w-4 h-4 text-gray-400 absolute left-3 top-3"></i>
+            <button type="button" onclick="togglePasswordVisibility('login-password', 'login-eye-icon')" class="absolute right-2.5 top-2.5 p-1 text-gray-400 hover:text-gray-700 rounded" title="Mostrar / Ocultar contraseña">
+              <i id="login-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <label class="inline-flex items-center gap-2 cursor-pointer select-none text-gray-700">
+            <input type="checkbox" id="login-remember" class="rounded border-gray-300 text-[#101929] focus:ring-[#101929]" />
+            <span>Recordar usuario</span>
+          </label>
+          <span id="login-attempts-indicator" class="text-[11px] text-gray-400">Intentos: 0/3</span>
+        </div>
+
+        <button type="submit" id="login-submit-btn" class="w-full bg-[#101929] hover:bg-black text-white font-semibold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm mt-2">
+          <span>Ingresar al Sistema</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+
+      <!-- Guía rápida de perfiles solicitados -->
+      <div class="mt-6 pt-4 border-t border-gray-100 text-[11px] text-gray-500 space-y-1">
+        <div class="font-semibold text-gray-700 mb-1">Perfiles de acceso configurados:</div>
+        <div class="flex justify-between"><span>• Operador General:</span> <code class="bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">ANAROSA</code></div>
+        <div class="flex justify-between"><span>• Acceso Supabase SQL:</span> <code class="bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">Admin</code></div>
+        <div class="flex justify-between"><span>• Super Administrador Total:</span> <code class="bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">WILLOSIRIS</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL DE BLOQUEO POR INACTIVIDAD (10 MINUTOS)
+       ========================================================================= -->
+  <div id="inactivity-lock-screen" class="fixed inset-0 bg-[#101929]/95 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 text-center fade-in">
+      <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="clock" class="w-6 h-6"></i>
+      </div>
+      <h3 class="text-base font-bold text-gray-900">Sesión Bloqueada por Inactividad</h3>
+      <p class="text-xs text-gray-500 mt-1">
+        Transcurrieron 10 minutos sin actividad. Ingresa la contraseña de <strong id="lock-screen-username" class="text-gray-900">ANAROSA</strong> para continuar trabajando.
+      </p>
+
+      <div id="unlock-error-msg" class="hidden mt-3 p-2 rounded bg-red-50 text-red-700 text-xs">
+        Contraseña incorrecta.
+      </div>
+
+      <form onsubmit="handleUnlockSession(event)" class="mt-4 space-y-3 text-left text-xs">
+        <div class="relative">
+          <input type="password" id="unlock-password" placeholder="Ingresa tu contraseña" class="input-clean w-full pr-10 py-2.5 text-sm font-sans" required />
+          <button type="button" onclick="togglePasswordVisibility('unlock-password', 'unlock-eye-icon')" class="absolute right-2.5 top-2.5 p-1 text-gray-400 hover:text-gray-700">
+            <i id="unlock-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <button type="submit" class="w-full bg-[#101929] hover:bg-black text-white font-medium py-2.5 rounded-xl transition">
+          Desbloquear Sesión
+        </button>
+      </form>
+
+      <button onclick="logoutToLoginScreen()" class="mt-3 text-xs text-gray-500 hover:text-gray-900 underline">
+        Cambiar de usuario / Cerrar sesión
+      </button>
+    </div>
+  </div>
+
+  <!-- BOTÓN HAMBURGUESA MÓVIL -->
+  <div class="md:hidden flex items-center justify-between bg-[#101929] text-white px-4 py-3 border-b border-slate-800 no-print">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded bg-white flex items-center justify-center text-[#101929] font-bold">A</div>
+      <div>
+        <span class="font-bold tracking-widest text-sm block leading-none">ANAROSA</span>
+        <span class="text-[10px] text-slate-400 tracking-wider">REPUESTOS Y ACCESORIOS</span>
+      </div>
+    </div>
+    <button onclick="toggleMobileSidebar()" class="p-2 rounded-lg bg-slate-800/80 text-slate-200 hover:text-white">
+      <i data-lucide="menu" class="w-5 h-5"></i>
+    </button>
+  </div>
+
+  <!-- SIDEBAR IZQUIERDO -->
+  <aside id="sidebar" class="sidebar-navy w-full md:w-64 md:min-h-screen flex-shrink-0 p-3.5 flex flex-col justify-between hidden md:flex select-none z-30 no-print">
+    <div>
+      <!-- Tarjeta blanca del Logo -->
+      <div class="bg-white rounded-xl p-4 mb-5 flex flex-col items-center justify-center text-center shadow-md">
+        <svg class="w-20 h-20 mb-1.5" viewBox="0 0 120 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="18,42 36,32 36,52 18,62" fill="#7c8594" />
+          <polygon points="44,27 64,15 64,35 44,47" fill="#7c8594" />
+          <polygon points="72,12 94,0 94,20 72,32" fill="#7c8594" />
+          <polygon points="28,45 44,36 44,85 28,85" fill="#102542" />
+          <polygon points="55,30 72,20 72,92 55,92" fill="#102542" />
+          <polygon points="83,14 102,4 102,100 83,100" fill="#102542" />
+          <circle cx="36" cy="94" r="5" fill="#7c8594" />
+          <circle cx="36" cy="94" r="2" fill="#ffffff" />
+        </svg>
+        <div class="text-[#101929] font-sans text-xl font-normal tracking-[0.16em] leading-tight">
+          ANAROSA
+        </div>
+        <div class="text-[#374151] font-sans text-[9px] tracking-[0.22em] font-medium mt-0.5 uppercase">
+          REPUESTOS Y ACCESORIOS
+        </div>
+      </div>
+
+      <!-- Navegación Principal con los nuevos apartados solicitados -->
+      <nav class="space-y-1 text-xs">
+        <button onclick="switchTab('inicio')" id="nav-inicio" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-all text-left">
+          <i data-lucide="layout-grid" class="w-4 h-4 flex-shrink-0"></i>
+          <span>Inicio</span>
+        </button>
+
+        <button onclick="switchTab('buscar')" id="nav-buscar" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-all text-left">
+          <i data-lucide="search" class="w-4 h-4 flex-shrink-0"></i>
+          <div class="flex-1 flex items-center justify-between">
+            <span>Buscar (Stock y Catálogo)</span>
+          </div>
+        </button>
+
+        <button onclick="switchTab('registrar-venta')" id="nav-registrar-venta" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-all text-left">
+          <i data-lucide="shopping-cart" class="w-4 h-4 flex-shrink-0"></i>
+          <div class="flex-1 flex items-center justify-between">
+            <span>Registrar Venta</span>
+            <span id="badge-cart-count" class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-sans">0</span>
+          </div>
+        </button>
+
+        <button onclick="switchTab('historial-ventas')" id="nav-historial-ventas" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-all text-left">
+          <i data-lucide="file-Spreadsheet" class="w-4 h-4 flex-shrink-0"></i>
+          <div class="flex-1 flex items-center justify-between">
+            <span>Historial de Ventas</span>
+            <span id="badge-por-cancelar" class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-sans">0</span>
+          </div>
+        </button>
+
+        <button onclick="switchTab('almacen')" id="nav-almacen" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-all text-left">
+          <i data-lucide="package" class="w-4 h-4 flex-shrink-0"></i>
+          <span>Compras y Almacén</span>
+        </button>
+
+        <button onclick="switchTab('clientes')" id="nav-clientes" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-all text-left">
+          <i data-lucide="users" class="w-4 h-4 flex-shrink-0"></i>
+          <div class="flex-1 flex items-center justify-between">
+            <span>Clientes</span>
+            <span id="badge-clientes-deuda" class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300 font-sans">0</span>
+          </div>
+        </button>
+
+        <div class="pt-2 mt-2 border-t border-slate-800/80 space-y-1">
+          <button onclick="switchTab('supabase')" id="nav-supabase" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-all text-left">
+            <i data-lucide="database" class="w-4 h-4 flex-shrink-0"></i>
+            <div class="flex-1 flex items-center justify-between">
+              <span>Supabase SQL</span>
+              <i id="nav-sql-lock-icon" data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i>
+            </div>
+          </button>
+
+          <!-- Apartado exclusivo de Usuarios para Super Administrador WILLOSIRIS -->
+          <button onclick="switchTab('usuarios')" id="nav-usuarios" class="w-full hidden items-center gap-3 px-3.5 py-2.5 rounded-lg transition-all text-left">
+            <i data-lucide="shield-check" class="w-4 h-4 flex-shrink-0 text-emerald-400"></i>
+            <div class="flex-1 flex items-center justify-between">
+              <span>Usuarios (Admin)</span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-sans">ROOT</span>
+            </div>
+          </button>
+        </div>
+      </nav>
+    </div>
+
+    <!-- Pie del Sidebar -->
+    <div class="mt-5 pt-3 border-t border-slate-800/80 text-xs text-slate-400 space-y-1.5 px-1">
+      <div class="flex items-center justify-between">
+        <span>Items en Almacén:</span>
+        <span id="sidebar-total-items" class="text-white font-semibold">11</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span>Unidades Totales:</span>
+        <span id="sidebar-total-units" class="text-emerald-400 font-semibold">100 und.</span>
+      </div>
+      <button onclick="resetToExcelData()" class="w-full mt-2 py-1.5 px-2.5 rounded border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white text-[11px] flex items-center justify-center gap-1.5 transition">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+        Restaurar Libro Excel
+      </button>
+    </div>
+  </aside>
+
+  <!-- CONTENEDOR DERECHO PRINCIPAL -->
+  <div class="flex-1 flex flex-col min-w-0 bg-[#fcfcfc]">
+    <!-- BARRA SUPERIOR -->
+    <header class="h-12 bg-white border-b border-gray-200 px-4 md:px-6 flex items-center justify-between text-xs text-gray-600 sticky top-0 z-20 no-print">
+      <div class="flex items-center gap-2.5">
+        <span id="sync-status-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-gray-100 text-gray-700 border border-gray-200">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span class="hidden sm:inline">Libro ANAROSA.xlsx sincronizado</span>
+          <span class="sm:hidden">Sincronizado</span>
+        </span>
+        <button onclick="toggleFontStyle()" class="hidden lg:inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-900 border border-gray-200 rounded px-2 py-0.5">
+          <i data-lucide="type" class="w-3 h-3"></i>
+          <span id="font-toggle-label">Fuente: Editorial</span>
+        </button>
+      </div>
+
+      <!-- Indicador de Sesión Activa, Cronómetro de Inactividad (10m) y Botón Salir -->
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-1.5 text-[11px] text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg" title="La sesión se bloqueará automáticamente tras 10 minutos de inactividad">
+          <i data-lucide="timer" class="w-3.5 h-3.5 text-gray-400"></i>
+          <span>Auto-bloqueo: <strong id="inactivity-countdown-display" class="font-mono text-gray-800">10:00</strong></span>
+        </div>
+
+        <div class="flex items-center gap-2 pl-2 border-l border-gray-200">
+          <span id="header-user-badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#101929] text-white">
+            ANAROSA
+          </span>
+          <span id="header-role-badge" class="hidden md:inline text-[11px] text-gray-500">
+            Operador
+          </span>
+          <button onclick="triggerInactivityLock()" title="Bloquear pantalla ahora" class="text-gray-500 hover:text-gray-900 p-1.5 rounded hover:bg-gray-100 transition">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+          </button>
+          <button onclick="logoutToLoginScreen()" title="Cerrar sesión / Cambiar de usuario" class="text-red-600 hover:text-red-800 p-1.5 rounded hover:bg-red-50 transition">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENIDO DINÁMICO DE LAS VISTAS -->
+    <main class="flex-1 p-4 md:p-7 max-w-[1600px] w-full mx-auto no-print">
+
+      <!-- =====================================================================
+           VISTA 1: INICIO (ANTES DASHBOARD)
+           ===================================================================== -->
+      <section id="view-inicio" class="fade-in space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-bold text-gray-900">Inicio</h1>
+            <p class="text-xs text-gray-500 mt-0.5">Resumen general de ingresos, cuentas por cobrar, clientes con deuda y balance del negocio.</p>
+          </div>
+          <div class="flex items-center gap-2 self-start sm:self-auto">
+            <button onclick="changeDashboardMonth(-1)" class="w-8 h-8 rounded-full border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-700">
+              <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            </button>
+            <select id="dashboard-period-select" onchange="onDashboardPeriodChange(this.value)" class="input-clean text-xs py-1.5 px-3 min-w-[165px] text-center font-medium">
+              <option value="ALL">Todo el Historial (2026)</option>
+              <option value="2026-08">Agosto 2026</option>
+              <option value="2026-09">Septiembre 2026</option>
+              <option value="2026-10">Octubre 2026</option>
+              <option value="2026-11">Noviembre 2026</option>
+            </select>
+            <button onclick="changeDashboardMonth(1)" class="w-8 h-8 rounded-full border border-gray-200 bg-white hover:bg-gray-50 flex items-center justify-center text-gray-700">
+              <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+            <button onclick="exportAllToCSV()" class="ml-1 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-gray-200 bg-white hover:bg-gray-50 text-xs font-medium text-gray-800 shadow-sm transition">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              Exportar Excel/CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Banner de Alerta: Quiénes deben -->
+        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <div class="flex items-start gap-2.5">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0"></i>
+            <div class="text-xs leading-relaxed flex-1">
+              <span class="font-bold text-gray-900 block mb-1">Clientes con saldo pendiente ("Por Cancelar"):</span>
+              <div id="dashboard-pending-clients-links" class="flex flex-wrap gap-x-3 gap-y-1.5 text-gray-700"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 Tarjetas KPI Principales -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-500">Ventas del periodo (Total Facturado)</span>
+              <span id="kpi-ventas-count" class="text-[11px] text-gray-400">25 reg.</span>
+            </div>
+            <div id="kpi-ventas-total" class="text-2xl font-bold text-gray-900 mt-3">S/ 1,665.00</div>
+            <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-[11px]">
+              <span class="text-emerald-700">Cobrado/Adelantos: <strong id="kpi-ventas-cobrado">S/ 475.00</strong></span>
+              <span class="text-amber-700">Por cancelar: <strong id="kpi-ventas-pendiente">S/ 1,190.00</strong></span>
+            </div>
+          </div>
+
+          <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-500">Costo de repuestos vendidos / Compras</span>
+              <span class="text-[11px] text-gray-400">Almacén valorizado</span>
+            </div>
+            <div id="kpi-compras-total" class="text-2xl font-bold text-gray-900 mt-3">S/ 1,103.00</div>
+            <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
+              <span>Capital en Stock actual: <strong id="kpi-capital-stock" class="text-gray-800">S/ 5,744.00</strong></span>
+              <span>Compras extra: <strong id="kpi-gastos-extra">S/ 0.00</strong></span>
+            </div>
+          </div>
+
+          <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-gray-500">Balance neto (Ganancia estimada)</span>
+              <span class="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Margen comercial</span>
+            </div>
+            <div id="kpi-balance-neto" class="text-2xl font-bold text-[#059669] mt-3">S/ 562.00</div>
+            <div class="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500">
+              <span>Valor venta stock total: <strong id="kpi-valor-venta-stock" class="text-gray-800">S/ 8,285.00</strong></span>
+              <span id="kpi-margen-pct" class="text-emerald-700 font-semibold">+33.8%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráfico de Barras 12 Meses -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h2 class="text-sm font-bold text-gray-900 mb-4">Ventas vs. compras/costos (últimos 12 meses)</h2>
+          <div class="w-full overflow-x-auto">
+            <div class="min-w-[720px]">
+              <div id="chart-12-months" class="h-64 flex flex-col justify-between relative pt-4 pb-6 px-10"></div>
+              <div class="flex items-center justify-center gap-6 text-xs text-gray-600 mt-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-2.5 bg-[#ef4444] inline-block rounded-xs"></span>
+                  <span>Costo / Compras</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-2.5 bg-[#1d6fe2] inline-block rounded-xs"></span>
+                  <span>Ventas Totales</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-2.5 bg-[#10b981] inline-block rounded-xs"></span>
+                  <span>Cobrado Efectivo</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dos tarjetas inferiores -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-bold text-gray-900">Saldos por cobrar y compras por cliente</h3>
+              <span class="text-[11px] text-gray-400">Clic para ver detalle</span>
+            </div>
+            <div id="chart-clientes-bars" class="space-y-3 mt-4"></div>
+          </div>
+
+          <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-bold text-gray-900">Ventas por línea de repuesto</h3>
+              <span class="text-[11px] text-gray-400">Soles (S/)</span>
+            </div>
+            <div id="chart-repuestos-bars" class="space-y-3 mt-4"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           VISTA 2: BUSCAR (CONSULTA DE STOCK E INFORMACIÓN DETALLADA)
+           ===================================================================== -->
+      <section id="view-buscar" class="hidden fade-in space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-bold text-gray-900">Buscar Repuestos y Consulta de Stock</h1>
+            <p class="text-xs text-gray-500 mt-0.5">Consulta inmediata de existencias, precio de venta, marca/compatibilidad, detalles técnicos y observaciones.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="switchTab('registrar-venta')" class="inline-flex items-center gap-2 bg-[#101929] hover:bg-black text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-sm transition">
+              <i data-lucide="shopping-cart" class="w-3.5 h-3.5"></i>
+              <span>Ir a Registrar Venta</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de búsqueda inteligente y filtros por defecto -->
+        <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            <div class="md:col-span-6">
+              <label class="block text-xs font-semibold text-gray-700 mb-1">Buscador rápido de repuestos</label>
+              <div class="relative">
+                <input type="text" id="buscar-query" oninput="renderBuscarCatalog()" placeholder="Escribe nombre del repuesto, código, marca (Volkswagen, Renault), detalle..." class="input-clean w-full pl-9 text-xs py-2.5" />
+                <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-2.5"></i>
+              </div>
+            </div>
+            <div class="md:col-span-3">
+              <label class="block text-xs text-gray-600 mb-1">Marca / Compatibilidad</label>
+              <select id="buscar-marca" onchange="renderBuscarCatalog()" class="input-clean w-full text-xs py-2">
+                <option value="ALL">Todas las marcas</option>
+                <option value="VOLKSWAGEN">VOLKSWAGEN</option>
+                <option value="RENAULT">RENAULT</option>
+                <option value="RENAULT MASTER">RENAULT MASTER</option>
+                <option value="MULTIMARCA">MULTIMARCA / UNIVERSAL</option>
+              </select>
+            </div>
+            <div class="md:col-span-3">
+              <label class="block text-xs text-gray-600 mb-1">Disponibilidad de Stock</label>
+              <select id="buscar-stock-filter" onchange="renderBuscarCatalog()" class="input-clean w-full text-xs py-2">
+                <option value="ALL">Todos los niveles de stock</option>
+                <option value="NORMAL">Stock Óptimo (> 5 und.)</option>
+                <option value="LOW">Stock Bajo / Crítico (≤ 5 und.)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tarjetas / Tabla estándar de sistema de inventario -->
+        <div id="buscar-results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Renderizado dinámico con Precio de Venta, Stock, Compatibilidad, Detalles y Observaciones -->
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           VISTA 3: REGISTRAR VENTA (FORMATO CENTRO COMERCIAL / POS MULTIPRODUCTO)
+           ===================================================================== -->
+      <section id="view-registrar-venta" class="hidden fade-in space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 class="text-xl font-bold text-gray-900">Registrar Venta (Punto de Venta)</h1>
+            <p class="text-xs text-gray-500 mt-0.5">Busca y selecciona uno o varios productos, ajusta cantidades, selecciona un cliente frecuente o "OTROS" y registra adelantos.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="clearPosCart()" class="px-3.5 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs text-gray-600 flex items-center gap-1.5">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              Limpiar Carrito
+            </button>
+            <button onclick="switchTab('historial-ventas')" class="px-3.5 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs text-gray-800 font-medium flex items-center gap-1.5">
+              <i data-lucide="history" class="w-3.5 h-3.5"></i>
+              Ver Historial de Ventas
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- COLUMNA IZQUIERDA (7 cols): BUSCADOR DE PRODUCTOS Y CARRITO MULTIPRODUCTO -->
+          <div class="lg:col-span-7 space-y-4">
+            <!-- Buscador de Productos con Stock en vivo -->
+            <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+              <label class="block text-xs font-bold text-gray-900 mb-2">
+                1. Buscar y Seleccionar Productos del Almacén
+              </label>
+              <div class="relative">
+                <input type="text" id="pos-product-search" oninput="renderPosProductPicker()" onfocus="renderPosProductPicker()" placeholder="Escribe el nombre del filtro, pastilla o marca para ver stock y agregar..." class="input-clean w-full pl-9 py-2.5 text-xs" />
+                <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-3"></i>
+              </div>
+
+              <!-- Lista rápida de productos con su Stock y Precio para agregar con 1 clic -->
+              <div id="pos-product-list" class="mt-3 max-h-60 overflow-y-auto divide-y divide-gray-100 border border-gray-200 rounded-lg">
+                <!-- Generado dinámicamente -->
+              </div>
+            </div>
+
+            <!-- Tabla del Carrito de Compras (Múltiples Productos, Cantidad por defecto 1, Sub-precios) -->
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+              <div class="px-5 py-3.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <span class="text-xs font-bold text-gray-900">2. Detalle de Productos a Vender</span>
+                <span id="pos-cart-summary-badge" class="text-[11px] text-gray-500">0 productos seleccionados</span>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr class="border-b border-gray-200 text-gray-600 bg-gray-50/50">
+                      <th class="py-2.5 px-3">Producto / Repuesto</th>
+                      <th class="py-2.5 px-2 text-center">Stock Disp.</th>
+                      <th class="py-2.5 px-2 text-center">Cantidad</th>
+                      <th class="py-2.5 px-3 text-right">Precio Unit. (S/.)</th>
+                      <th class="py-2.5 px-3 text-right">Sub-precio (S/.)</th>
+                      <th class="py-2.5 px-2 text-center">Quitar</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pos-cart-tbody" class="divide-y divide-gray-100">
+                    <!-- Filas del carrito -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- COLUMNA DERECHA (5 cols): DATOS DEL CLIENTE (BUSCADOR INTELIGENTE + OTROS) Y PAGO/ADELANTO -->
+          <div class="lg:col-span-5 bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-5">
+            <div class="border-b border-gray-100 pb-3">
+              <h2 class="text-sm font-bold text-gray-900">3. Datos del Cliente y Liquidación de Venta</h2>
+              <p class="text-[11px] text-gray-500">Busca un cliente frecuente o elige "OTROS" para habilitar el llenado manual.</p>
+            </div>
+
+            <!-- Buscador Inteligente de Clientes Frecuentes (Lista vertical desplegable) -->
+            <div class="space-y-3 text-xs">
+              <div class="relative">
+                <label class="block text-gray-700 font-semibold mb-1">Buscar Cliente Frecuente o seleccionar "OTROS"</label>
+                <div class="relative">
+                  <input
+                    type="text"
+                    id="pos-client-search-input"
+                    oninput="onPosClientSearchInput(this.value)"
+                    onfocus="openPosClientDropdown()"
+                    placeholder="Escribe código (#27, TALLER, GADDIEL...) o elige OTROS"
+                    class="input-clean w-full pl-9 pr-8 py-2 text-xs font-medium"
+                    autocomplete="off"
+                  />
+                  <i data-lucide="user-check" class="w-4 h-4 text-gray-400 absolute left-3 top-2.5"></i>
+                  <button type="button" onclick="togglePosClientDropdown()" class="absolute right-2 top-2 text-gray-400 hover:text-gray-700 p-0.5">
+                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                  </button>
+                </div>
+
+                <!-- Lista vertical inteligente de clientes frecuentes -->
+                <div id="pos-client-dropdown" class="hidden absolute left-0 right-0 mt-1 bg-white border border-gray-300 rounded-xl shadow-xl max-h-60 overflow-y-auto z-30 divide-y divide-gray-100">
+                  <!-- Opciones filtradas en vivo -->
+                </div>
+              </div>
+
+              <!-- Alerta si el cliente seleccionado mantiene deuda pendiente -->
+              <div id="pos-selected-client-debt-alert" class="hidden p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-center justify-between">
+                <span id="pos-selected-client-debt-text">Este cliente mantiene deuda pendiente.</span>
+                <span class="font-bold underline ml-2">Verificar</span>
+              </div>
+
+              <!-- Campos de datos del cliente (Bloqueados por defecto; se desbloquean SOLO si elige "OTROS") -->
+              <div class="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label class="block text-[11px] text-gray-600 mb-1">Código de Cliente / Unidad</label>
+                  <input type="text" id="pos-client-codigo" readonly class="input-clean w-full text-xs font-bold uppercase" placeholder="Código (ej. #27)" />
+                </div>
+                <div>
+                  <label class="block text-[11px] text-gray-600 mb-1">Origen / Ciudad</label>
+                  <input type="text" id="pos-client-origen" readonly class="input-clean w-full text-xs uppercase" placeholder="Ej. JULIACA / TALLER" />
+                </div>
+                <div class="col-span-2">
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-[11px] text-gray-600">Nombre del Cliente / Descripción</label>
+                    <span id="pos-manual-mode-badge" class="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600">Autorellenado (Cliente Frecuente)</span>
+                  </div>
+                  <input type="text" id="pos-client-nombre" readonly class="input-clean w-full text-xs" placeholder="Nombre completo o referencia del cliente" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Fecha y Modalidad de Pago / Adelanto -->
+            <div class="pt-3 border-t border-gray-100 space-y-3 text-xs">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-gray-700 font-medium mb-1">Fecha de Venta</label>
+                  <input type="date" id="pos-fecha" value="2026-11-09" class="input-clean w-full text-xs" />
+                </div>
+                <div>
+                  <label class="block text-gray-700 font-medium mb-1">¿Dará adelanto o pago?</label>
+                  <select id="pos-payment-mode" onchange="onPosPaymentModeChange(this.value)" class="input-clean w-full text-xs font-medium">
+                    <option value="CREDITO">Por Cancelar (Sin adelanto)</option>
+                    <option value="ADELANTO">Dar Adelanto Parcial</option>
+                    <option value="CONTADO">Cancelado (Pago Total)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Input de Adelanto (se habilita cuando selecciona Dar Adelanto Parcial) -->
+              <div id="pos-adelanto-box" class="hidden p-3 rounded-lg bg-blue-50/70 border border-blue-200 space-y-1.5">
+                <label class="block text-blue-900 font-semibold">Monto de Adelanto / A cuenta (S/.)</label>
+                <input type="number" id="pos-adelanto-input" step="0.01" min="0" value="0" oninput="recalcPosTotals()" class="input-clean w-full text-sm font-bold text-blue-900" placeholder="0.00" />
+                <p class="text-[10px] text-blue-700">El resto quedará registrado automáticamente como saldo pendiente ("Por Cancelar").</p>
+              </div>
+
+              <div>
+                <label class="block text-gray-700 font-medium mb-1">Observaciones de la Venta (opcional)</label>
+                <input type="text" id="pos-observacion" placeholder="Ej. Lleva repuestos para mantenimiento, autorizado por taller..." class="input-clean w-full text-xs" />
+              </div>
+            </div>
+
+            <!-- Resumen de Totales tipo Ticket de Centro Comercial -->
+            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2 text-xs">
+              <div class="flex justify-between text-gray-600">
+                <span>Cantidad total de unidades:</span>
+                <strong id="pos-summary-units">0 und.</strong>
+              </div>
+              <div class="flex justify-between text-sm font-bold text-gray-900 pt-1 border-t border-gray-200">
+                <span>PRECIO TOTAL:</span>
+                <span id="pos-summary-total" class="text-base">S/ 0.00</span>
+              </div>
+              <div class="flex justify-between text-emerald-700">
+                <span>Monto Pagado / Adelanto:</span>
+                <strong id="pos-summary-paid">S/ 0.00</strong>
+              </div>
+              <div class="flex justify-between text-amber-800 font-bold pt-1 border-t border-gray-200">
+                <span>SALDO PENDIENTE:</span>
+                <span id="pos-summary-balance">S/ 0.00</span>
+              </div>
+            </div>
+
+            <button onclick="submitPosSale()" class="w-full bg-[#101929] hover:bg-black text-white font-semibold py-3 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-xs">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+              <span>Procesar y Registrar Venta</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           VISTA 4: HISTORIAL DE VENTAS (CON REPORTE IMPRIMIBLE ANUAL/MENSUAL/SEMANAL)
+           ===================================================================== -->
+      <section id="view-historial-ventas" class="hidden fade-in space-y-5">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-bold text-gray-900">Historial de Ventas</h1>
+            <p class="text-xs text-gray-500 mt-0.5">Registro completo de todas las ventas realizadas, control de saldos pendientes e impresión de reportes.</p>
+          </div>
+
+          <!-- Panel de Impresión de Reportes (Semanal, Mensual, Anual) -->
+          <div class="flex flex-wrap items-center gap-2 bg-white border border-gray-200 rounded-xl p-2 shadow-sm">
+            <span class="text-xs font-semibold text-gray-700 pl-2 flex items-center gap-1">
+              <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+              Reporte:
+            </span>
+            <select id="report-period-type" onchange="onReportTypeChange()" class="input-clean text-xs py-1.5 px-2.5">
+              <option value="MENSUAL">Mensual</option>
+              <option value="SEMANAL">Semanal (Últimos 7 días de corte)</option>
+              <option value="ANUAL">Anual (Todo el Año)</option>
+              <option value="FILTRO_ACTUAL">Según filtro actual en pantalla</option>
+            </select>
+            <input type="month" id="report-month-picker" value="2026-09" class="input-clean text-xs py-1 px-2" />
+            <button onclick="openPrintReportModal()" class="bg-[#101929] hover:bg-black text-white text-xs font-medium px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+              <span>Imprimir Reporte</span>
+            </button>
+            <button onclick="switchTab('registrar-venta')" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-medium px-3.5 py-1.5 rounded-lg transition flex items-center gap-1">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>Nueva Venta</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filtros del Historial -->
+        <div class="flex flex-wrap items-end gap-4 pt-1">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Estado</label>
+            <select id="filter-ventas-estado" onchange="renderVentasTable()" class="input-clean w-44 text-xs">
+              <option value="all">all (Todos)</option>
+              <option value="Por Cancelar">Por Cancelar (Con deuda)</option>
+              <option value="Cancelado">Cancelado (Pagado)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Cliente / Unidad</label>
+            <select id="filter-ventas-cliente" onchange="renderVentasTable()" class="input-clean w-48 text-xs">
+              <option value="all">all (Todos)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Repuesto / Producto</label>
+            <select id="filter-ventas-producto" onchange="renderVentasTable()" class="input-clean w-60 text-xs">
+              <option value="all">all (Todos los repuestos)</option>
+            </select>
+          </div>
+
+          <div class="flex-1 min-w-[180px]">
+            <label class="block text-xs text-gray-500 mb-1">Buscar en historial</label>
+            <input type="text" id="filter-ventas-search" oninput="renderVentasTable()" placeholder="Cliente, repuesto, observación, fecha..." class="input-clean w-full text-xs" />
+          </div>
+
+          <button onclick="clearVentasFilters()" class="text-xs text-gray-500 hover:text-black underline pb-2">
+            Limpiar filtros
+          </button>
+        </div>
+
+        <!-- Resumen rápido de la vista filtrada -->
+        <div id="ventas-filter-summary" class="flex flex-wrap items-center justify-between gap-2 bg-gray-50 border border-gray-200/80 rounded-lg px-4 py-2 text-xs text-gray-600"></div>
+
+        <!-- Tabla Principal del Historial de Ventas -->
+        <div class="bg-white border-t border-b border-gray-200 overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-gray-200 text-gray-700 font-normal">
+                <th class="py-3 px-3">N°</th>
+                <th class="py-3 px-3">Cliente</th>
+                <th class="py-3 px-3">Detalle de Repuestos (Cant. x Sub-precio)</th>
+                <th class="py-3 px-3">Fecha</th>
+                <th class="py-3 px-3 text-center">Und. Tot.</th>
+                <th class="py-3 px-3 text-right">Precio Total</th>
+                <th class="py-3 px-3 text-right">Adelanto / Pagado</th>
+                <th class="py-3 px-3 text-right">Saldo</th>
+                <th class="py-3 px-3">Estado</th>
+                <th class="py-3 px-2 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="ventas-table-body" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           VISTA 5: COMPRAS Y ALMACÉN (CON PROTECCIÓN ADMIN EN PRECIOS)
+           ===================================================================== -->
+      <section id="view-almacen" class="hidden fade-in space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-bold text-gray-900">Compras y Almacén de Repuestos</h1>
+            <p class="text-xs text-gray-500 mt-0.5">Control de stock físico e ingreso de mercadería. <strong class="text-gray-700">Nota:</strong> La modificación de precios de compra/venta requiere permiso de Administrador.</p>
+          </div>
+          <button onclick="openProductModal()" class="inline-flex items-center gap-2 bg-[#14171f] hover:bg-black text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-sm transition self-start sm:self-auto">
+            <i data-lucide="package-plus" class="w-3.5 h-3.5"></i>
+            <span>Nuevo repuesto en Almacén</span>
+          </button>
+        </div>
+
+        <!-- Formulario horizontal para Registrar Compra de Stock o Gasto -->
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <div class="text-xs font-bold text-gray-800 mb-3 flex items-center justify-between">
+            <span>Registrar compra de mercadería (suma al Stock) o gasto operativo</span>
+            <span class="text-[11px] font-normal text-gray-500">Actualiza automáticamente las unidades en almacén</span>
+          </div>
+          <form onsubmit="handlePurchaseSubmit(event)" class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
+              <div class="lg:col-span-2">
+                <label class="block text-xs text-gray-700 mb-1">Repuesto o Tipo de Gasto</label>
+                <select id="compra-producto-id" onchange="onCompraProductSelect(this.value)" class="input-clean w-full text-xs" required></select>
+              </div>
+              <div>
+                <label class="block text-xs text-gray-700 mb-1">Fecha de compra</label>
+                <input type="date" id="compra-fecha" value="2026-11-09" class="input-clean w-full text-xs" required />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-700 mb-1">Cantidad (Und.)</label>
+                <input type="number" id="compra-cantidad" min="1" value="1" oninput="updateCompraTotalPreview()" class="input-clean w-full text-xs" required />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-700 mb-1">Costo Unit. (S/.)</label>
+                <input type="number" id="compra-costo-unit" step="0.01" min="0" placeholder="0.00" oninput="updateCompraTotalPreview()" class="input-clean w-full text-xs" required />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-700 mb-1">Descripción / Proveedor (opcional)</label>
+                <input type="text" id="compra-descripcion" placeholder="Ej. Factura Lima, flete..." class="input-clean w-full text-xs" />
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <button type="submit" class="bg-[#14171f] hover:bg-black text-white text-xs font-medium px-4 py-2 rounded-lg transition">
+                Registrar Ingreso / Compra
+              </button>
+              <span id="compra-total-preview" class="text-xs text-gray-600">Total egreso: <strong>S/ 0.00</strong></span>
+            </div>
+          </form>
+        </div>
+
+        <!-- Tabla de Almacén -->
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-bold text-gray-900">Inventario Actual en Almacén (11 líneas del Libro Excel)</h2>
+              <p class="text-[11px] text-gray-500">Solo los usuarios con permiso de Administrador pueden modificar los precios de Compra o Venta.</p>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span id="almacen-price-perm-badge" class="px-2.5 py-1 rounded-full text-[11px] font-medium"></span>
+              <span class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                Stock bajo (≤ 3 und): <strong id="almacen-low-stock-count">3</strong>
+              </span>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-gray-200 bg-gray-50/60 text-gray-700">
+                  <th class="py-3 px-4">N°</th>
+                  <th class="py-3 px-4">Descripción del Repuesto</th>
+                  <th class="py-3 px-4">Compatibilidad / Marca</th>
+                  <th class="py-3 px-4 text-center">Stock</th>
+                  <th class="py-3 px-4 text-right">P. Compra</th>
+                  <th class="py-3 px-4 text-right">P. Venta</th>
+                  <th class="py-3 px-4 text-right">Ganancia Unit.</th>
+                  <th class="py-3 px-4">Detalles y Observaciones</th>
+                  <th class="py-3 px-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="almacen-table-body" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Historial de Compras -->
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <h3 class="text-sm font-bold text-gray-900 mb-3">Historial de compras y gastos varios registrados</h3>
+          <div id="compras-history-container"></div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           VISTA 6: CLIENTES (CON ALERTA DE DEUDA EN EL ENCABEZADO)
+           ===================================================================== -->
+      <section id="view-clientes" class="hidden fade-in space-y-6">
+        <div>
+          <h1 class="text-xl font-bold text-gray-900">Clientes Frecuentes y Estado de Cuentas</h1>
+          <p class="text-xs text-gray-500 mt-0.5">Administra tu cartera de clientes frecuentes (Taller, Flota Juliaca, Flota Ayaviri, Particulares) y supervisa sus deudas activas.</p>
+        </div>
+
+        <!-- ENCABEZADO DE ALERTA DE DEUDAS PENDIENTES DE CLIENTES -->
+        <div id="clientes-header-debt-banner" class="bg-amber-50/90 border border-amber-300 rounded-xl p-5 shadow-sm">
+          <!-- Renderizado dinámico con todos los clientes que mantienen deuda pendiente -->
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Formulario para Agregar Cliente Frecuente (4 cols) -->
+          <div class="lg:col-span-4 bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <h2 class="text-sm font-bold text-gray-900 mb-1">Agregar Nuevo Cliente Frecuente</h2>
+            <p class="text-[11px] text-gray-500 mb-4">Al guardarlo aparecerá inmediatamente en la lista vertical inteligente de "Registrar Venta".</p>
+
+            <form onsubmit="handleAddClient(event)" class="space-y-3 text-xs">
+              <div>
+                <label class="block text-gray-700 font-medium mb-1">Código de Cliente / Unidad *</label>
+                <input type="text" id="new-client-codigo" placeholder="Ej. #62, TALLER-2, EMP-SUR" class="input-clean w-full text-xs uppercase font-bold" required />
+              </div>
+              <div>
+                <label class="block text-gray-700 font-medium mb-1">Origen / Sede / Ciudad *</label>
+                <input type="text" id="new-client-origen" placeholder="Ej. JULIACA, AYAVIRI, PUNO, TALLER" class="input-clean w-full text-xs uppercase" required />
+              </div>
+              <div>
+                <label class="block text-gray-700 font-medium mb-1">Nombre Completo / Descripción *</label>
+                <input type="text" id="new-client-nombre" placeholder="Ej. Unidad #62 Flota Juliaca - Sr. Mario" class="input-clean w-full text-xs" required />
+              </div>
+              <div>
+                <label class="block text-gray-700 font-medium mb-1">Teléfono / Placa / Referencia</label>
+                <input type="text" id="new-client-telefono" placeholder="Ej. 951-000-111" class="input-clean w-full text-xs" />
+              </div>
+              <button type="submit" class="w-full bg-[#101929] hover:bg-black text-white font-medium py-2.5 rounded-lg transition mt-2">
+                + Guardar Cliente Frecuente
+              </button>
+            </form>
+          </div>
+
+          <!-- Tabla de Clientes Frecuentes con su Deuda Acumulada (8 cols) -->
+          <div class="lg:col-span-8 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 class="text-sm font-bold text-gray-900">Directorio de Clientes Frecuentes</h2>
+              <span id="clientes-count-label" class="text-xs text-gray-500">7 clientes registrados</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-gray-200 bg-gray-50 text-gray-700">
+                    <th class="py-3 px-4">Código</th>
+                    <th class="py-3 px-4">Nombre / Descripción</th>
+                    <th class="py-3 px-4">Origen</th>
+                    <th class="py-3 px-4">Teléfono</th>
+                    <th class="py-3 px-4 text-right">Total Compras</th>
+                    <th class="py-3 px-4 text-right">Deuda Pendiente</th>
+                    <th class="py-3 px-4 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="clientes-directory-tbody" class="divide-y divide-gray-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           VISTA 7: SUPABASE SQL (BLOQUEADO CON ACCESO ADMIN / 1903 O WILLOSIRIS)
+           ===================================================================== -->
+      <section id="view-supabase" class="hidden fade-in space-y-6">
+        <!-- CANDADO DE SEGURIDAD PARA SUPABASE SQL (Si el usuario actual no tiene permiso directo) -->
+        <div id="supabase-lock-gate" class="bg-white border border-gray-200 rounded-2xl max-w-md mx-auto my-8 p-7 shadow-lg text-center">
+          <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-3">
+            <i data-lucide="shield-lock" class="w-6 h-6"></i>
+          </div>
+          <h2 class="text-base font-bold text-gray-900">Acceso Restringido a Supabase SQL</h2>
+          <p class="text-xs text-gray-500 mt-1">
+            Esta sección está protegida. Ingresa las credenciales de Administrador SQL (<code class="bg-gray-100 px-1 rounded">Admin</code> / <code class="bg-gray-100 px-1 rounded">1903</code>) o del Super Administrador (<code class="bg-gray-100 px-1 rounded">WILLOSIRIS</code>) para desbloquear.
+          </p>
+
+          <form onsubmit="handleUnlockSupabaseGate(event)" class="mt-5 space-y-3 text-left text-xs">
+            <div>
+              <label class="block text-gray-700 font-semibold mb-1">Usuario Administrador</label>
+              <input type="text" id="sql-gate-user" placeholder="Admin o WILLOSIRIS" class="input-clean w-full text-xs font-sans" required />
+            </div>
+            <div>
+              <label class="block text-gray-700 font-semibold mb-1">Contraseña</label>
+              <input type="password" id="sql-gate-pass" placeholder="••••" class="input-clean w-full text-xs font-sans" required />
+            </div>
+            <button type="submit" class="w-full bg-[#101929] hover:bg-black text-white font-semibold py-2.5 rounded-xl transition">
+              Desbloquear Supabase SQL
+            </button>
+          </form>
+        </div>
+
+        <!-- CONTENIDO REAL DE SUPABASE SQL (Visible solo tras desbloqueo o para Admin/WILLOSIRIS) -->
+        <div id="supabase-unlocked-content" class="hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-xl font-bold text-gray-900">Conexión a Supabase (Base de Datos en la Nube)</h1>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">DESBLOQUEADO</span>
+              </div>
+              <p class="text-xs text-gray-500 mt-0.5">Conecta tu proyecto de Supabase para respaldar tu almacén, clientes, ventas y usuarios.</p>
+            </div>
+            <button onclick="copySupabaseSQL()" class="inline-flex items-center gap-2 bg-[#14171f] hover:bg-black text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-sm transition">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>Copiar Script SQL Completo</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-5 bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+              <h2 class="text-sm font-bold text-gray-900">1. Credenciales de tu proyecto Supabase</h2>
+              <form onsubmit="saveSupabaseCredentials(event)" class="space-y-3.5">
+                <div>
+                  <label class="block text-xs text-gray-700 mb-1">Supabase Project URL</label>
+                  <input type="url" id="sb-url-input" placeholder="https://tu-proyecto.supabase.co" class="input-clean w-full text-xs font-sans" />
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-700 mb-1">Supabase Anon Key (Public)</label>
+                  <input type="password" id="sb-key-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="input-clean w-full text-xs font-sans" />
+                </div>
+                <div class="flex flex-wrap items-center gap-2 pt-2">
+                  <button type="submit" class="bg-[#14171f] hover:bg-black text-white text-xs font-medium px-4 py-2 rounded-lg transition">
+                    Conectar y Sincronizar
+                  </button>
+                  <button type="button" onclick="pushLocalToSupabase()" class="border border-gray-300 hover:bg-gray-50 text-gray-800 text-xs px-3 py-2 rounded-lg transition">
+                    Subir datos a Supabase
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div class="lg:col-span-7 bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-bold text-gray-900">2. Código SQL para el SQL Editor de Supabase</h2>
+                <span id="copy-sql-feedback" class="text-xs text-emerald-600 font-medium hidden">¡Copiado!</span>
+              </div>
+              <textarea id="supabase-sql-code" readonly class="w-full flex-1 min-h-[320px] bg-[#0f172a] text-slate-200 font-mono text-[11px] p-4 rounded-lg border border-slate-800 focus:outline-none leading-relaxed"></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================================
+           VISTA 8: USUARIOS (EXCLUSIVO PARA SUPER ADMINISTRADOR "WILLOSIRIS")
+           ===================================================================== -->
+      <section id="view-usuarios" class="hidden fade-in space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-xl font-bold text-gray-900">Administración de Usuarios y Permisos</h1>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#101929] text-white">EXCLUSIVO WILLOSIRIS</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-0.5">Cambia contraseñas de acceso, crea o modifica usuarios y asigna permisos específicos sobre ventas, precios y SQL.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Formulario Crear / Editar Usuario (4 cols) -->
+          <div class="lg:col-span-4 bg-white border border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
+            <h2 id="user-form-title" class="text-sm font-bold text-gray-900">Agregar / Modificar Usuario</h2>
+            <form onsubmit="handleSaveUser(event)" class="space-y-3.5 text-xs">
+              <input type="hidden" id="edit-user-id" value="" />
+              <div>
+                <label class="block text-gray-700 font-semibold mb-1">Nombre de Usuario (Login) *</label>
+                <input type="text" id="user-form-username" placeholder="Ej. ANAROSA, VENDEDOR2" class="input-clean w-full text-xs font-sans" required />
+              </div>
+              <div>
+                <label class="block text-gray-700 font-semibold mb-1">Contraseña de Acceso *</label>
+                <div class="relative">
+                  <input type="text" id="user-form-password" placeholder="Ej. 190324" class="input-clean w-full text-xs font-sans" required />
+                </div>
+              </div>
+              <div>
+                <label class="block text-gray-700 font-semibold mb-1">Cargo / Rol descriptivo</label>
+                <input type="text" id="user-form-role" placeholder="Ej. Ventas Mostrador / Administrador" class="input-clean w-full text-xs" required />
+              </div>
+
+              <div class="pt-2 border-t border-gray-100 space-y-2">
+                <div class="font-bold text-gray-800">Permisos del Usuario:</div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="perm-eliminar-ventas" class="rounded border-gray-300 text-[#101929]" />
+                  <span>Puede eliminar Historial de Ventas</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="perm-modificar-precios" class="rounded border-gray-300 text-[#101929]" />
+                  <span>Puede modificar precios de Compra/Venta</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="perm-acceso-sql" class="rounded border-gray-300 text-[#101929]" />
+                  <span>Acceso directo a Supabase SQL</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" id="perm-gestionar-usuarios" class="rounded border-gray-300 text-[#101929]" />
+                  <span>Super Admin (Administrar Usuarios)</span>
+                </label>
+              </div>
+
+              <div class="flex gap-2 pt-2">
+                <button type="submit" class="flex-1 bg-[#101929] hover:bg-black text-white font-semibold py-2.5 rounded-lg transition">
+                  Guardar Usuario
+                </button>
+                <button type="button" onclick="resetUserForm()" class="px-3 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                  Limpiar
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Tabla de Usuarios y Permisos Activos (8 cols) -->
+          <div class="lg:col-span-8 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-200">
+              <h2 class="text-sm font-bold text-gray-900">Usuarios del Sistema (Control de Claves y Permisos en Tiempo Real)</h2>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-gray-200 bg-gray-50 text-gray-700">
+                    <th class="py-3 px-4">Usuario</th>
+                    <th class="py-3 px-4">Contraseña Actual</th>
+                    <th class="py-3 px-4">Rol</th>
+                    <th class="py-3 px-3 text-center">Borrar Ventas</th>
+                    <th class="py-3 px-3 text-center">Editar Precios</th>
+                    <th class="py-3 px-3 text-center">Supabase SQL</th>
+                    <th class="py-3 px-3 text-center">Super Admin</th>
+                    <th class="py-3 px-4 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="usuarios-table-body" class="divide-y divide-gray-100"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: EDITAR / NUEVO REPUESTO EN ALMACÉN (CON BLOQUEO DE PRECIOS SI NO ES ADMIN)
+       ========================================================================= -->
+  <div id="modal-producto" class="fixed inset-0 bg-black/50 backdrop-blur-[1px] z-50 hidden items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl border border-gray-200 fade-in">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+        <h3 id="modal-producto-title" class="text-base font-bold text-gray-900">Ficha de Repuesto en Almacén</h3>
+        <button onclick="closeProductModal()" class="text-gray-400 hover:text-gray-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Aviso de bloqueo de precios si el usuario no tiene permiso modificar_precios -->
+      <div id="prod-price-lock-warning" class="hidden mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <i data-lucide="lock" class="w-4 h-4 text-amber-700 flex-shrink-0"></i>
+          <span>Modificar precios de Compra/Venta requiere acceso de Administrador.</span>
+        </div>
+        <button type="button" onclick="promptAdminOverrideForPrices()" class="px-2.5 py-1 rounded bg-amber-800 text-white text-[11px] font-medium whitespace-nowrap hover:bg-black">
+          Autorizar con clave Admin
+        </button>
+      </div>
+
+      <form onsubmit="handleProductSubmit(event)" class="space-y-3.5 mt-4 text-xs">
+        <input type="hidden" id="prod-edit-id" value="" />
+
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Descripción del Repuesto *</label>
+          <input type="text" id="prod-descripcion" placeholder="Ej. FILTRO DE PETROLEO P/VOLKSWAGEN" class="input-clean w-full text-xs uppercase font-bold" required />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-gray-700 font-medium mb-1">Compatibilidad / Marca *</label>
+            <input type="text" id="prod-compatibilidad" placeholder="Ej. VOLKSWAGEN" class="input-clean w-full text-xs uppercase" required />
+          </div>
+          <div>
+            <label class="block text-gray-700 font-medium mb-1">Unidad de Medida</label>
+            <input type="text" id="prod-und" value="Unidad" class="input-clean w-full text-xs" required />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-gray-700 font-medium mb-1">Stock Disponible</label>
+            <input type="number" id="prod-stock" min="0" value="0" class="input-clean w-full text-xs font-bold" required />
+          </div>
+          <div>
+            <label class="block text-gray-700 font-medium mb-1">P. Compra (S/.)</label>
+            <input type="number" id="prod-pcompra" step="0.01" min="0" value="0" class="input-clean w-full text-xs" required />
+          </div>
+          <div>
+            <label class="block text-gray-700 font-medium mb-1">P. Venta (S/.)</label>
+            <input type="number" id="prod-pventa" step="0.01" min="0" value="0" class="input-clean w-full text-xs font-bold" required />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Detalles Técnicos del Producto</label>
+          <input type="text" id="prod-detalles" placeholder="Especificaciones, aplicación, código equivalente..." class="input-clean w-full text-xs" />
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Observaciones</label>
+          <input type="text" id="prod-observacion" placeholder="Ej. Alta rotación, stock bajo..." class="input-clean w-full text-xs" />
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+          <button type="button" onclick="closeProductModal()" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-lg bg-[#14171f] hover:bg-black text-white font-medium">
+            Guardar Cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: ABONAR / EDITAR PAGO DE UNA VENTA EN EL HISTORIAL
+       ========================================================================= -->
+  <div id="modal-abono-venta" class="fixed inset-0 bg-black/50 backdrop-blur-[1px] z-50 hidden items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-gray-200 fade-in text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+        <h3 id="modal-abono-title" class="text-base font-bold text-gray-900">Actualizar Pago / Adelanto de Venta</h3>
+        <button onclick="closeAbonoModal()" class="text-gray-400 hover:text-gray-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form onsubmit="handleAbonoSubmit(event)" class="space-y-4 mt-4">
+        <input type="hidden" id="abono-venta-id" />
+        <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-1">
+          <div class="flex justify-between"><span>Cliente:</span> <strong id="abono-cliente-label"></strong></div>
+          <div class="flex justify-between"><span>Total de la Venta:</span> <strong id="abono-total-label"></strong></div>
+        </div>
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1">Monto Total Pagado / Adelanto Acumulado (S/.)</label>
+          <input type="number" id="abono-pagado-input" step="0.01" min="0" class="input-clean w-full text-sm font-bold" required />
+        </div>
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1">Observación</label>
+          <input type="text" id="abono-obs-input" class="input-clean w-full text-xs" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeAbonoModal()" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600">Cancelar</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-[#101929] text-white font-medium">Guardar Pago</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL DE AUTORIZACIÓN RÁPIDA DE ADMINISTRADOR (PARA ELIMINAR VENTA O EDITAR PRECIO)
+       ========================================================================= -->
+  <div id="modal-admin-auth" class="fixed inset-0 bg-black/60 backdrop-blur-[1px] z-50 hidden items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 fade-in text-xs">
+      <div class="flex items-center gap-2.5 text-amber-800 font-bold text-sm mb-2">
+        <i data-lucide="key-round" class="w-5 h-5"></i>
+        <span>Se requiere permiso de Administrador</span>
+      </div>
+      <p id="admin-auth-reason" class="text-gray-600 mb-4">
+        Tu usuario actual no tiene permiso directo para esta acción. Ingresa la clave de <strong>WILLOSIRIS</strong> o <strong>Admin</strong> para autorizarla.
+      </p>
+      <form onsubmit="handleAdminAuthSubmit(event)" class="space-y-3">
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Usuario Admin</label>
+          <input type="text" id="admin-auth-user" value="WILLOSIRIS" class="input-clean w-full text-xs font-sans" required />
+        </div>
+        <div>
+          <label class="block text-gray-700 font-medium mb-1">Contraseña Admin</label>
+          <input type="password" id="admin-auth-pass" placeholder="••••••••" class="input-clean w-full text-xs font-sans" required />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeAdminAuthModal()" class="px-3.5 py-2 rounded-lg border border-gray-200 text-gray-600">Cancelar</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-[#101929] text-white font-semibold">Autorizar Acción</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL DE VISTA PREVIA E IMPRESIÓN DE REPORTE (SEMANAL, MENSUAL, ANUAL)
+       ========================================================================= -->
+  <div id="modal-print-report" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-xl max-w-4xl w-full p-6 shadow-2xl border border-gray-200 my-auto max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between pb-4 border-b border-gray-200 no-print">
+        <div>
+          <h3 class="text-base font-bold text-gray-900">Vista Previa de Reporte Oficial para Impresión</h3>
+          <p class="text-xs text-gray-500">Formato limpio optimizado para impresora o Guardar como PDF.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="window.print()" class="bg-[#101929] hover:bg-black text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5 shadow">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Imprimir Ahora / Guardar PDF</span>
+          </button>
+          <button onclick="closePrintReportModal()" class="px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50">
+            Cerrar
+          </button>
+        </div>
+      </div>
+
+      <!-- Área Imprimible -->
+      <div id="print-report-area" class="overflow-y-auto p-6 space-y-5 text-xs">
+        <!-- Se llena dinámicamente con el membrete ANAROSA, tabla de ventas del periodo y totales -->
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none no-print"></div>
+
+  <script>
+    // ============================================================================
+    // 1. DATOS INICIALES DEL LIBRO EXCEL (ALMACÉN, CLIENTES, HISTORIAL Y USUARIOS)
+    // ============================================================================
+    const INITIAL_ALMACEN = [
+      { id: 1, descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", compatibilidad: "VOLKSWAGEN", stock: 13, und: "Unidad", pCompra: 60, pVenta: 80, detalles: "Filtro separador de combustible diésel de alta eficiencia", observacion: "Alta rotación" },
+      { id: 2, descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", compatibilidad: "VOLKSWAGEN", stock: 33, und: "Unidad", pCompra: 20, pVenta: 35, detalles: "Filtro de aceite sintético/mineral roscado", observacion: "Stock óptimo" },
+      { id: 3, descripcion: "FILTRO DE AIRE / MON 4312", compatibilidad: "MULTIMARCA / MON 4312", stock: 10, und: "Unidad", pCompra: 55, pVenta: 75, detalles: "Elemento filtrante de aire de motor primario código MON 4312", observacion: "Compatible con flota pesada" },
+      { id: 4, descripcion: "FILTRO DE CABINA P/VOLKSWAGEN", compatibilidad: "VOLKSWAGEN", stock: 3, und: "Unidad", pCompra: 48, pVenta: 70, detalles: "Filtro antipolen de habitáculo y aire acondicionado", observacion: "Stock bajo - reabastecer pronto" },
+      { id: 5, descripcion: "TRAMPA DE AGUA", compatibilidad: "MULTIMARCA / UNIVERSAL", stock: 6, und: "Unidad", pCompra: 95, pVenta: 120, detalles: "Separador de agua y sedimentos para sistema de inyección diésel", observacion: "Revisar empaques incluidos" },
+      { id: 6, descripcion: "PASTILLAS DELANTERAS P/VOLKSWAGEN", compatibilidad: "VOLKSWAGEN", stock: 9, und: "Unidad", pCompra: 85, pVenta: 120, detalles: "Juego de pastillas de freno delanteras semimetálicas", observacion: "Precio actualizado según historial" },
+      { id: 7, descripcion: "PASTILLAS TRACERAS P/VOLKSWAGEN", compatibilidad: "VOLKSWAGEN", stock: 9, und: "Unidad", pCompra: 90, pVenta: 130, detalles: "Juego de pastillas de freno traseras de alta duración", observacion: "Precio actualizado según historial" },
+      { id: 8, descripcion: "PASTILLAS DELANTERAS P/RENAULT", compatibilidad: "RENAULT", stock: 6, und: "Unidad", pCompra: 80, pVenta: 115, detalles: "Juego de pastillas de freno delanteras para línea Renault", observacion: "Verificar lote en estante B" },
+      { id: 9, descripcion: "PASTILLAS TRACERAS P/RENAULT", compatibilidad: "RENAULT", stock: 3, und: "Unidad", pCompra: 85, pVenta: 125, detalles: "Juego de pastillas de freno traseras para línea Renault", observacion: "Stock bajo" },
+      { id: 10, descripcion: "PASTILLAS DELANTERAS P/RENAULT MASTER", compatibilidad: "RENAULT MASTER", stock: 6, und: "Unidad", pCompra: 95, pVenta: 140, detalles: "Pastillas de freno trabajo pesado para furgón Renault Master", observacion: "Pendiente confirmar cobro en unidad #03" },
+      { id: 11, descripcion: "PASTILLAS TRACERAS P/RENAULT MASTER", compatibilidad: "RENAULT MASTER", stock: 2, und: "Unidad", pCompra: 100, pVenta: 145, detalles: "Pastillas traseras trabajo pesado para Renault Master", observacion: "Stock crítico" }
+    ];
+
+    const INITIAL_CLIENTES = [
+      { id: 1, codigo: "TALLER", origen: "TALLER", nombre: "Taller Mecánico Central", telefono: "984-110-220" },
+      { id: 2, codigo: "#27", origen: "JULIACA", nombre: "Unidad #27 (Flota Juliaca)", telefono: "951-270-027" },
+      { id: 3, codigo: "#48", origen: "JULIACA", nombre: "Unidad #48 (Flota Juliaca)", telefono: "951-480-048" },
+      { id: 4, codigo: "#56", origen: "JULIACA", nombre: "Unidad #56 (Flota Juliaca)", telefono: "951-560-056" },
+      { id: 5, codigo: "#03", origen: "AYAVIRI", nombre: "Unidad #03 (Flota Ayaviri)", telefono: "951-030-003" },
+      { id: 6, codigo: "GADDIEL", origen: "JULIACA", nombre: "Gaddiel Transportes", telefono: "951-889-123" }
+    ];
+
+    const INITIAL_VENTAS = [
+      { id: 1, fecha: "2026-08-01", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
+      { id: 2, fecha: "2026-08-09", cliente: "GADDIEL", clienteNombre: "Gaddiel Transportes", origen: "JULIACA", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
+      { id: 3, fecha: "2026-08-09", cliente: "GADDIEL", clienteNombre: "Gaddiel Transportes", origen: "JULIACA", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
+      { id: 4, fecha: "2026-08-10", cliente: "#56", clienteNombre: "Unidad #56 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
+      { id: 5, fecha: "2026-08-12", cliente: "#27", clienteNombre: "Unidad #27 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE CABINA P/VOLKSWAGEN", cantidad: 1, precioUnit: 70, total: 70, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE CABINA P/VOLKSWAGEN", cantidad: 1, precioUnit: 70, subtotal: 70 }] },
+      { id: 6, fecha: "2026-08-12", cliente: "#27", clienteNombre: "Unidad #27 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
+      { id: 7, fecha: "2026-08-28", cliente: "OTRO", clienteNombre: "Cliente Particular Mostrador", origen: "OTROS", descripcion: "PASTILLAS DELANTERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 120, total: 120, pagado: 120, estado: "Cancelado", observacion: "", items: [{ descripcion: "PASTILLAS DELANTERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 120, subtotal: 120 }] },
+      { id: 8, fecha: "2026-08-29", cliente: "#48", clienteNombre: "Unidad #48 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
+      { id: 9, fecha: "2026-08-29", cliente: "#48", clienteNombre: "Unidad #48 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
+      { id: 10, fecha: "2026-09-07", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 75, total: 75, pagado: 75, estado: "Cancelado", observacion: "COBRO MENOS POR FALTA DE RELEVO DE PRECIOS", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 75, subtotal: 75 }] },
+      { id: 11, fecha: "2026-09-07", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 30, total: 30, pagado: 30, estado: "Cancelado", observacion: "COBRO MENOS POR FALTA DE RELEVO DE PRECIOS", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 30, subtotal: 30 }] },
+      { id: 12, fecha: "2026-08-15", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "PASTILLAS TRACERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 130, total: 130, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "PASTILLAS TRACERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 130, subtotal: 130 }] },
+      { id: 13, fecha: "2026-09-21", cliente: "#56", clienteNombre: "Unidad #56 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
+      { id: 14, fecha: "2026-09-21", cliente: "#56", clienteNombre: "Unidad #56 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
+      { id: 15, fecha: "2026-09-21", cliente: "#56", clienteNombre: "Unidad #56 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE AIRE / MON 4312", cantidad: 1, precioUnit: 75, total: 75, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE AIRE / MON 4312", cantidad: 1, precioUnit: 75, subtotal: 75 }] },
+      { id: 16, fecha: "2026-09-22", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "PASTILLAS TRACERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 130, total: 130, pagado: 130, estado: "Cancelado", observacion: "", items: [{ descripcion: "PASTILLAS TRACERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 130, subtotal: 130 }] },
+      { id: 17, fecha: "2026-09-22", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "PASTILLAS DELANTERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 120, total: 120, pagado: 120, estado: "Cancelado", observacion: "", items: [{ descripcion: "PASTILLAS DELANTERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 120, subtotal: 120 }] },
+      { id: 18, fecha: "2026-09-02", cliente: "#03", clienteNombre: "Unidad #03 (Flota Ayaviri)", origen: "AYAVIRI", descripcion: "PASTILLAS DELANTERAS P/RENAULT MASTER", cantidad: 1, precioUnit: 0, total: 0, pagado: 0, estado: "Por Cancelar", observacion: "Pendiente fijar precio", items: [{ descripcion: "PASTILLAS DELANTERAS P/RENAULT MASTER", cantidad: 1, precioUnit: 0, subtotal: 0 }] },
+      { id: 19, fecha: "2026-09-25", cliente: "#27", clienteNombre: "Unidad #27 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE AIRE / MON 4312", cantidad: 1, precioUnit: 75, total: 75, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE AIRE / MON 4312", cantidad: 1, precioUnit: 75, subtotal: 75 }] },
+      { id: 20, fecha: "2026-09-25", cliente: "#27", clienteNombre: "Unidad #27 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
+      { id: 21, fecha: "2026-09-25", cliente: "#27", clienteNombre: "Unidad #27 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
+      { id: 22, fecha: "2026-10-14", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
+      { id: 23, fecha: "2026-10-14", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
+      { id: 24, fecha: "2026-10-17", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
+      { id: 25, fecha: "2026-10-17", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] }
+    ];
+
+    // Usuarios por defecto solicitados
+    const INITIAL_USUARIOS = [
+      {
+        id: 1,
+        username: "ANAROSA",
+        password: "190324",
+        role: "Operador General de Ventas",
+        permissions: {
+          eliminar_ventas: false,
+          modificar_precios: false,
+          acceso_sql: false,
+          gestionar_usuarios: false
+        }
+      },
+      {
+        id: 2,
+        username: "Admin",
+        password: "1903",
+        role: "Administrador SQL y Precios",
+        permissions: {
+          eliminar_ventas: true,
+          modificar_precios: true,
+          acceso_sql: true,
+          gestionar_usuarios: false
+        }
+      },
+      {
+        id: 3,
+        username: "WILLOSIRIS",
+        password: "74969686",
+        role: "Super Administrador Total",
+        permissions: {
+          eliminar_ventas: true,
+          modificar_precios: true,
+          acceso_sql: true,
+          gestionar_usuarios: true
+        }
+      }
+    ];
+
+    // ============================================================================
+    // 2. ESTADO GLOBAL Y PERSISTENCIA
+    // ============================================================================
+    const STORAGE_KEY = "anarosa_erp_state_v2";
+    let state = {
+      almacen: [],
+      ventas: [],
+      compras: [],
+      clientes: [],
+      usuarios: [],
+      currentUser: null,
+      supabaseGateUnlocked: false,
+      tempPriceOverride: false,
+      currentTab: "inicio",
+      dashboardPeriod: "ALL",
+      fontEditorial: true,
+      // Estado del Carrito de Registrar Venta (POS)
+      posCart: [],
+      posSelectedClient: null // Objeto cliente o { codigo: 'OTROS', isManual: true }
+    };
+
+    // Variables de Seguridad: Login (3 intentos -> 1 min bloqueo) e Inactividad (10 min)
+    let failedLoginAttempts = 0;
+    let loginLockoutUntil = 0;
+    let loginLockoutInterval = null;
+
+    const INACTIVITY_LIMIT_SECONDS = 600; // 10 minutos exactos (600 segundos)
+    let inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
+    let inactivityInterval = null;
+    let isSessionLocked = false;
+    let pendingAdminCallback = null;
+
+    let supabaseClient = null;
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          state.almacen = parsed.almacen || JSON.parse(JSON.stringify(INITIAL_ALMACEN));
+          state.ventas = parsed.ventas || JSON.parse(JSON.stringify(INITIAL_VENTAS));
+          state.compras = parsed.compras || [];
+          state.clientes = parsed.clientes || JSON.parse(JSON.stringify(INITIAL_CLIENTES));
+          state.usuarios = parsed.usuarios || JSON.parse(JSON.stringify(INITIAL_USUARIOS));
+        } else {
+          state.almacen = JSON.parse(JSON.stringify(INITIAL_ALMACEN));
+          state.ventas = JSON.parse(JSON.stringify(INITIAL_VENTAS));
+          state.compras = [];
+          state.clientes = JSON.parse(JSON.stringify(INITIAL_CLIENTES));
+          state.usuarios = JSON.parse(JSON.stringify(INITIAL_USUARIOS));
+          saveState();
+        }
+      } catch (e) {
+        state.almacen = JSON.parse(JSON.stringify(INITIAL_ALMACEN));
+        state.ventas = JSON.parse(JSON.stringify(INITIAL_VENTAS));
+        state.compras = [];
+        state.clientes = JSON.parse(JSON.stringify(INITIAL_CLIENTES));
+        state.usuarios = JSON.parse(JSON.stringify(INITIAL_USUARIOS));
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          almacen: state.almacen,
+          ventas: state.ventas,
+          compras: state.compras,
+          clientes: state.clientes,
+          usuarios: state.usuarios
+        }));
+        updateSidebarCounters();
+      } catch (e) {
+        console.error("Error guardando en localStorage:", e);
+      }
+    }
+
+    function resetToExcelData() {
+      if (!hasPermission("eliminar_ventas")) {
+        requestAdminAuthorization("Restaurar los datos de fábrica del Excel requiere autorización de Administrador.", () => {
+          executeResetToExcel();
+        });
+        return;
+      }
+      executeResetToExcel();
+    }
+
+    function executeResetToExcel() {
+      state.almacen = JSON.parse(JSON.stringify(INITIAL_ALMACEN));
+      state.ventas = JSON.parse(JSON.stringify(INITIAL_VENTAS));
+      state.compras = [];
+      state.clientes = JSON.parse(JSON.stringify(INITIAL_CLIENTES));
+      saveState();
+      renderAll();
+      showToast("Datos restaurados al Libro de Cuentas (ANAROSA).xlsx", "success");
+    }
+
+    // ============================================================================
+    // 3. AUTENTICACIÓN, BLOQUEO DE 1 MINUTO E INACTIVIDAD DE 10 MINUTOS
+    // ============================================================================
+    function initLoginScreen() {
+      const rememberedUser = localStorage.getItem("anarosa_remembered_user");
+      if (rememberedUser) {
+        document.getElementById("login-username").value = rememberedUser;
+        document.getElementById("login-remember").checked = true;
+      }
+
+      // Verificar si había un bloqueo de 1 minuto activo
+      const savedLockout = Number(localStorage.getItem("anarosa_lockout_until") || 0);
+      if (savedLockout > Date.now()) {
+        loginLockoutUntil = savedLockout;
+        failedLoginAttempts = 3;
+        startLockoutCountdown();
+      }
+    }
+
+    function togglePasswordVisibility(inputId, iconId) {
+      const inp = document.getElementById(inputId);
+      const icon = document.getElementById(iconId);
+      if (!inp) return;
+      if (inp.type === "password") {
+        inp.type = "text";
+        icon.setAttribute("data-lucide", "eye-off");
+      } else {
+        inp.type = "password";
+        icon.setAttribute("data-lucide", "eye");
+      }
+      lucide.createIcons();
+    }
+
+    function handleLoginSubmit(e) {
+      e.preventDefault();
+      if (Date.now() < loginLockoutUntil) return;
+
+      const uInput = document.getElementById("login-username").value.trim();
+      const pInput = document.getElementById("login-password").value;
+      const remember = document.getElementById("login-remember").checked;
+
+      const foundUser = state.usuarios.find(
+        u => u.username.toLowerCase() === uInput.toLowerCase() && u.password === pInput
+      );
+
+      if (!foundUser) {
+        failedLoginAttempts++;
+        document.getElementById("login-attempts-indicator").textContent = `Intentos: ${failedLoginAttempts}/3`;
+        const errBox = document.getElementById("login-error-msg");
+        const errTxt = document.getElementById("login-error-text");
+
+        if (failedLoginAttempts >= 3) {
+          errBox.classList.add("hidden");
+          loginLockoutUntil = Date.now() + 60 * 1000; // 1 minuto exacto
+          localStorage.setItem("anarosa_lockout_until", String(loginLockoutUntil));
+          startLockoutCountdown();
+        } else {
+          errBox.classList.remove("hidden");
+          errTxt.textContent = `Credenciales incorrectas. Te quedan ${3 - failedLoginAttempts} intento(s) antes del bloqueo de 1 minuto.`;
+        }
+        return;
+      }
+
+      // Login exitoso
+      failedLoginAttempts = 0;
+      localStorage.removeItem("anarosa_lockout_until");
+      document.getElementById("login-error-msg").classList.add("hidden");
+      document.getElementById("login-attempts-indicator").textContent = "Intentos: 0/3";
+
+      if (remember) {
+        localStorage.setItem("anarosa_remembered_user", foundUser.username);
+      } else {
+        localStorage.removeItem("anarosa_remembered_user");
+      }
+
+      loginAsUser(foundUser);
+    }
+
+    function startLockoutCountdown() {
+      const banner = document.getElementById("login-lockout-banner");
+      const timerEl = document.getElementById("login-lockout-timer");
+      const uInp = document.getElementById("login-username");
+      const pInp = document.getElementById("login-password");
+      const btn = document.getElementById("login-submit-btn");
+
+      banner.classList.remove("hidden");
+      uInp.disabled = true;
+      pInp.disabled = true;
+      btn.disabled = true;
+      btn.classList.add("opacity-50", "cursor-not-allowed");
+
+      if (loginLockoutInterval) clearInterval(loginLockoutInterval);
+
+      const tick = () => {
+        const diffSec = Math.ceil((loginLockoutUntil - Date.now()) / 1000);
+        if (diffSec <= 0) {
+          clearInterval(loginLockoutInterval);
+          failedLoginAttempts = 0;
+          localStorage.removeItem("anarosa_lockout_until");
+          banner.classList.add("hidden");
+          uInp.disabled = false;
+          pInp.disabled = false;
+          btn.disabled = false;
+          btn.classList.remove("opacity-50", "cursor-not-allowed");
+          document.getElementById("login-attempts-indicator").textContent = "Intentos: 0/3";
+          showToast("Tiempo de espera cumplido. Ya puedes volver a intentar.", "info");
+        } else {
+          const m = String(Math.floor(diffSec / 60)).padStart(2, "0");
+          const s = String(diffSec % 60).padStart(2, "0");
+          timerEl.textContent = `${m}:${s}`;
+        }
+      };
+      tick();
+      loginLockoutInterval = setInterval(tick, 1000);
+    }
+
+    function loginAsUser(userObj) {
+      state.currentUser = userObj;
+      state.supabaseGateUnlocked = Boolean(userObj.permissions && userObj.permissions.acceso_sql);
+      state.tempPriceOverride = false;
+
+      document.getElementById("login-screen").classList.add("hidden");
+      document.getElementById("login-password").value = "";
+
+      updateUserUI();
+      startInactivityMonitor();
+      switchTab("inicio");
+      showToast(`Bienvenido(a), ${userObj.username} (${userObj.role})`, "success");
+    }
+
+    function updateUserUI() {
+      if (!state.currentUser) return;
+      document.getElementById("header-user-badge").textContent = state.currentUser.username;
+      document.getElementById("header-role-badge").textContent = state.currentUser.role;
+
+      // Mostrar u ocultar apartado de Usuarios (exclusivo para WILLOSIRIS o quien tenga gestionar_usuarios)
+      const navUsuarios = document.getElementById("nav-usuarios");
+      if (hasPermission("gestionar_usuarios") || state.currentUser.username.toUpperCase() === "WILLOSIRIS") {
+        navUsuarios.classList.remove("hidden");
+        navUsuarios.classList.add("flex");
+      } else {
+        navUsuarios.classList.add("hidden");
+        navUsuarios.classList.remove("flex");
+      }
+
+      // Icono de candado en Supabase SQL
+      const sqlLockIcon = document.getElementById("nav-sql-lock-icon");
+      if (state.supabaseGateUnlocked || hasPermission("acceso_sql")) {
+        sqlLockIcon.setAttribute("data-lucide", "unlock");
+        sqlLockIcon.className = "w-3.5 h-3.5 text-emerald-400";
+      } else {
+        sqlLockIcon.setAttribute("data-lucide", "lock");
+        sqlLockIcon.className = "w-3.5 h-3.5 text-amber-400";
+      }
+      lucide.createIcons();
+    }
+
+    function hasPermission(permKey) {
+      if (!state.currentUser) return false;
+      if (state.currentUser.username.toUpperCase() === "WILLOSIRIS") return true;
+      return Boolean(state.currentUser.permissions && state.currentUser.permissions[permKey]);
+    }
+
+    function logoutToLoginScreen() {
+      state.currentUser = null;
+      isSessionLocked = false;
+      if (inactivityInterval) clearInterval(inactivityInterval);
+      document.getElementById("inactivity-lock-screen").classList.add("hidden");
+      document.getElementById("inactivity-lock-screen").classList.remove("flex");
+      document.getElementById("login-screen").classList.remove("hidden");
+      initLoginScreen();
+    }
+
+    // Monitor de Inactividad de 10 minutos (600 segundos)
+    function startInactivityMonitor() {
+      inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
+      isSessionLocked = false;
+      if (inactivityInterval) clearInterval(inactivityInterval);
+
+      inactivityInterval = setInterval(() => {
+        if (!state.currentUser || isSessionLocked) return;
+        inactivityRemainingSeconds--;
+        const m = String(Math.floor(inactivityRemainingSeconds / 60)).padStart(2, "0");
+        const s = String(inactivityRemainingSeconds % 60).padStart(2, "0");
+        const disp = document.getElementById("inactivity-countdown-display");
+        if (disp) disp.textContent = `${m}:${s}`;
+
+        if (inactivityRemainingSeconds <= 0) {
+          triggerInactivityLock();
+        }
+      }, 1000);
+    }
+
+    function resetInactivityTimer() {
+      if (!state.currentUser || isSessionLocked) return;
+      inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
+      const disp = document.getElementById("inactivity-countdown-display");
+      if (disp) disp.textContent = "10:00";
+    }
+
+    ["mousemove", "keydown", "click", "scroll", "touchstart"].forEach(evt => {
+      window.addEventListener(evt, resetInactivityTimer, { passive: true });
+    });
+
+    function triggerInactivityLock() {
+      if (!state.currentUser) return;
+      isSessionLocked = true;
+      document.getElementById("lock-screen-username").textContent = state.currentUser.username;
+      document.getElementById("unlock-password").value = "";
+      document.getElementById("unlock-error-msg").classList.add("hidden");
+      const lockModal = document.getElementById("inactivity-lock-screen");
+      lockModal.classList.remove("hidden");
+      lockModal.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function handleUnlockSession(e) {
+      e.preventDefault();
+      if (!state.currentUser) return;
+      const pass = document.getElementById("unlock-password").value;
+      // Volver a sincronizar con la lista de usuarios por si cambió la clave
+      const freshUser = state.usuarios.find(u => u.id === state.currentUser.id) || state.currentUser;
+      if (pass === freshUser.password) {
+        isSessionLocked = false;
+        inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
+        const lockModal = document.getElementById("inactivity-lock-screen");
+        lockModal.classList.add("hidden");
+        lockModal.classList.remove("flex");
+        showToast("Sesión reanudada correctamente", "success");
+      } else {
+        document.getElementById("unlock-error-msg").classList.remove("hidden");
+      }
+    }
+
+    // Modal de autorización puntual de Administrador para acciones restringidas
+    function requestAdminAuthorization(reasonText, onAuthorizedCallback) {
+      pendingAdminCallback = onAuthorizedCallback;
+      document.getElementById("admin-auth-reason").textContent = reasonText;
+      document.getElementById("admin-auth-pass").value = "";
+      const m = document.getElementById("modal-admin-auth");
+      m.classList.remove("hidden");
+      m.classList.add("flex");
+    }
+
+    function closeAdminAuthModal() {
+      pendingAdminCallback = null;
+      const m = document.getElementById("modal-admin-auth");
+      m.classList.add("hidden");
+      m.classList.remove("flex");
+    }
+
+    function handleAdminAuthSubmit(e) {
+      e.preventDefault();
+      const u = document.getElementById("admin-auth-user").value.trim();
+      const p = document.getElementById("admin-auth-pass").value;
+
+      const adminUser = state.usuarios.find(
+        usr => usr.username.toLowerCase() === u.toLowerCase() && usr.password === p &&
+        (usr.username.toUpperCase() === "WILLOSIRIS" || usr.username.toLowerCase() === "admin" || usr.permissions.eliminar_ventas || usr.permissions.modificar_precios)
+      );
+
+      if (!adminUser) {
+        showToast("Credenciales de Administrador no válidas", "warning");
+        return;
+      }
+
+      const cb = pendingAdminCallback;
+      closeAdminAuthModal();
+      if (typeof cb === "function") cb();
+    }
+
+    // ============================================================================
+    // 4. UTILIDADES DE FORMATO Y NAVEGACIÓN
+    // ============================================================================
+    function formatMoney(num) {
+      const n = Number(num) || 0;
+      return "S/ " + n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatDatePE(isoStr) {
+      if (!isoStr) return "-";
+      const parts = isoStr.split("-");
+      if (parts.length !== 3) return isoStr;
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toast-container");
+      const el = document.createElement("div");
+      const bg = type === "success" ? "bg-[#101929] border-emerald-500" : type === "warning" ? "bg-amber-900 border-amber-400" : "bg-[#101929] border-gray-600";
+      el.className = `${bg} text-white text-xs px-4 py-3 rounded-xl shadow-lg border-l-4 flex items-center gap-2.5 fade-in pointer-events-auto max-w-sm`;
+      el.innerHTML = `
+        <span class="w-2 h-2 rounded-full ${type === 'success' ? 'bg-emerald-400' : 'bg-amber-400'} flex-shrink-0"></span>
+        <span>${message}</span>
+      `;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = "0";
+        el.style.transition = "opacity 0.25s";
+        setTimeout(() => el.remove(), 260);
+      }, 3200);
+    }
+
+    function toggleFontStyle() {
+      state.fontEditorial = !state.fontEditorial;
+      document.body.classList.toggle("mode-sans", !state.fontEditorial);
+      document.getElementById("font-toggle-label").textContent = state.fontEditorial ? "Fuente: Editorial" : "Fuente: Moderna";
+    }
+
+    function toggleMobileSidebar() {
+      document.getElementById("sidebar").classList.toggle("hidden");
+    }
+
+    function switchTab(tabName) {
+      // Si intenta entrar a 'usuarios' sin ser WILLOSIRIS / gestionar_usuarios
+      if (tabName === "usuarios" && !hasPermission("gestionar_usuarios")) {
+        showToast("El módulo de Usuarios es exclusivo para el administrador WILLOSIRIS", "warning");
+        return;
+      }
+
+      state.currentTab = tabName;
+      const tabs = ["inicio", "buscar", "registrar-venta", "historial-ventas", "almacen", "clientes", "supabase", "usuarios"];
+      tabs.forEach(t => {
+        const view = document.getElementById(`view-${t}`);
+        const navBtn = document.getElementById(`nav-${t}`);
+        if (!view || !navBtn) return;
+        const isHiddenUserNav = t === "usuarios" && !hasPermission("gestionar_usuarios");
+        if (t === tabName) {
+          view.classList.remove("hidden");
+          navBtn.className = `w-full ${isHiddenUserNav ? 'hidden' : 'flex'} items-center gap-3 px-3.5 py-2.5 rounded-lg bg-white text-[#101929] font-bold shadow-sm transition-all text-left`;
+        } else {
+          view.classList.add("hidden");
+          navBtn.className = `w-full ${isHiddenUserNav ? 'hidden' : 'flex'} items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-all text-left`;
+        }
+      });
+
+      if (window.innerWidth < 768) {
+        document.getElementById("sidebar").classList.add("hidden");
+      }
+
+      renderAll();
+    }
+
+    function updateSidebarCounters() {
+      const totalItems = state.almacen.length;
+      const totalUnits = state.almacen.reduce((acc, item) => acc + (Number(item.stock) || 0), 0);
+      const pendingSalesCount = state.ventas.filter(v => v.estado === "Por Cancelar").length;
+
+      // Calcular cuántos clientes tienen deuda pendiente
+      const debtMap = getClientDebtMap();
+      const clientsWithDebtCount = Object.values(debtMap).filter(d => d.saldo > 0 || d.pendingCount > 0).length;
+
+      document.getElementById("sidebar-total-items").textContent = totalItems;
+      document.getElementById("sidebar-total-units").textContent = `${totalUnits} und.`;
+      document.getElementById("badge-por-cancelar").textContent = pendingSalesCount;
+      document.getElementById("badge-clientes-deuda").textContent = clientsWithDebtCount;
+      document.getElementById("badge-cart-count").textContent = state.posCart.reduce((s, i) => s + i.cantidad, 0);
+    }
+
+    function getClientDebtMap() {
+      const map = {};
+      state.ventas.forEach(v => {
+        const total = Number(v.total) || 0;
+        const pagado = Number(v.pagado) || 0;
+        const saldo = Math.max(0, total - pagado);
+        const key = (v.cliente || "OTROS").toUpperCase();
+        if (!map[key]) {
+          map[key] = { codigo: key, totalComprado: 0, totalPagado: 0, saldo: 0, pendingCount: 0 };
+        }
+        map[key].totalComprado += total;
+        map[key].totalPagado += pagado;
+        map[key].saldo += saldo;
+        if (v.estado === "Por Cancelar") {
+          map[key].pendingCount += 1;
+        }
+      });
+      return map;
+    }
+
+    // ============================================================================
+    // 5. VISTA 1: INICIO (DASHBOARD)
+    // ============================================================================
+    const PERIOD_LIST = ["ALL", "2026-08", "2026-09", "2026-10", "2026-11"];
+
+    function onDashboardPeriodChange(val) {
+      state.dashboardPeriod = val;
+      renderInicio();
+    }
+
+    function changeDashboardMonth(dir) {
+      const idx = PERIOD_LIST.indexOf(state.dashboardPeriod);
+      const nextIdx = (idx + dir + PERIOD_LIST.length) % PERIOD_LIST.length;
+      state.dashboardPeriod = PERIOD_LIST[nextIdx];
+      document.getElementById("dashboard-period-select").value = state.dashboardPeriod;
+      renderInicio();
+    }
+
+    function getProductCost(descripcion) {
+      const found = state.almacen.find(a => a.descripcion.toUpperCase() === (descripcion || "").toUpperCase());
+      return found ? (Number(found.pCompra) || 0) : 0;
+    }
+
+    function renderInicio() {
+      const period = state.dashboardPeriod;
+      const filteredVentas = period === "ALL"
+        ? state.ventas
+        : state.ventas.filter(v => (v.fecha || "").startsWith(period));
+      const filteredCompras = period === "ALL"
+        ? state.compras
+        : state.compras.filter(c => (c.fecha || "").startsWith(period));
+
+      const debtMap = getClientDebtMap();
+      const pendingClients = Object.values(debtMap).filter(d => d.saldo > 0 || d.pendingCount > 0);
+      const pendingContainer = document.getElementById("dashboard-pending-clients-links");
+
+      if (pendingClients.length === 0) {
+        pendingContainer.innerHTML = `<span class="text-emerald-700 font-medium">¡Excelente! Ningún cliente mantiene deuda pendiente.</span>`;
+      } else {
+        pendingContainer.innerHTML = pendingClients.map(info => {
+          const label = info.saldo > 0 ? `${info.codigo} (Debe: ${formatMoney(info.saldo)})` : `${info.codigo} (Precio por definir)`;
+          return `<button onclick="jumpToClientSales('${info.codigo}')" class="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 hover:bg-amber-100 font-medium transition">${label}</button>`;
+        }).join("");
+      }
+
+      const totalFacturado = filteredVentas.reduce((acc, v) => acc + (Number(v.total) || 0), 0);
+      const totalCobrado = filteredVentas.reduce((acc, v) => acc + (Number(v.pagado) || 0), 0);
+      const totalPendiente = Math.max(0, totalFacturado - totalCobrado);
+
+      const costoRepuestosVendidos = filteredVentas.reduce((acc, v) => {
+        if (Array.isArray(v.items) && v.items.length > 0) {
+          return acc + v.items.reduce((s, it) => s + getProductCost(it.descripcion) * (Number(it.cantidad) || 1), 0);
+        }
+        return acc + getProductCost(v.descripcion) * (Number(v.cantidad) || 1);
+      }, 0);
+
+      const gastosExtra = filteredCompras.reduce((acc, c) => acc + (Number(c.total) || 0), 0);
+      const costoTotalPeriodo = costoRepuestosVendidos + gastosExtra;
+      const utilidadBruta = totalFacturado - costoTotalPeriodo;
+
+      const capitalStockActual = state.almacen.reduce((acc, a) => acc + (Number(a.stock) || 0) * (Number(a.pCompra) || 0), 0);
+      const valorVentaStockActual = state.almacen.reduce((acc, a) => acc + (Number(a.stock) || 0) * (Number(a.pVenta) || 0), 0);
+
+      document.getElementById("kpi-ventas-count").textContent = `${filteredVentas.length} reg.`;
+      document.getElementById("kpi-ventas-total").textContent = formatMoney(totalFacturado);
+      document.getElementById("kpi-ventas-cobrado").textContent = formatMoney(totalCobrado);
+      document.getElementById("kpi-ventas-pendiente").textContent = formatMoney(totalPendiente);
+
+      document.getElementById("kpi-compras-total").textContent = formatMoney(costoTotalPeriodo);
+      document.getElementById("kpi-capital-stock").textContent = formatMoney(capitalStockActual);
+      document.getElementById("kpi-gastos-extra").textContent = formatMoney(gastosExtra);
+
+      document.getElementById("kpi-balance-neto").textContent = formatMoney(utilidadBruta);
+      const margenPct = totalFacturado > 0 ? ((utilidadBruta / totalFacturado) * 100).toFixed(1) : "0.0";
+      document.getElementById("kpi-margen-pct").textContent = `${margenPct >= 0 ? '+' : ''}${margenPct}% margen`;
+      document.getElementById("kpi-valor-venta-stock").textContent = formatMoney(valorVentaStockActual);
+
+      render12MonthsChart();
+      renderBottomCharts(filteredVentas);
+    }
+
+    function jumpToClientSales(clienteCode) {
+      switchTab("historial-ventas");
+      document.getElementById("filter-ventas-cliente").value = clienteCode;
+      document.getElementById("filter-ventas-estado").value = "Por Cancelar";
+      renderVentasTable();
+      showToast(`Filtrando cuentas por cobrar de ${clienteCode}`, "info");
+    }
+
+    function render12MonthsChart() {
+      const months = [
+        { key: "2025-12", label: "Dic 2025" },
+        { key: "2026-01", label: "Ene 2026" },
+        { key: "2026-02", label: "Feb 2026" },
+        { key: "2026-03", label: "Mar 2026" },
+        { key: "2026-04", label: "Abr 2026" },
+        { key: "2026-05", label: "May 2026" },
+        { key: "2026-06", label: "Jun 2026" },
+        { key: "2026-07", label: "Jul 2026" },
+        { key: "2026-08", label: "Ago 2026" },
+        { key: "2026-09", label: "Sep 2026" },
+        { key: "2026-10", label: "Oct 2026" },
+        { key: "2026-11", label: "Nov 2026" }
+      ];
+
+      const dataPerMonth = months.map(m => {
+        const mVentas = state.ventas.filter(v => (v.fecha || "").startsWith(m.key));
+        const mCompras = state.compras.filter(c => (c.fecha || "").startsWith(m.key));
+
+        const ventasSum = mVentas.reduce((acc, v) => acc + (Number(v.total) || 0), 0);
+        const cobradoSum = mVentas.reduce((acc, v) => acc + (Number(v.pagado) || 0), 0);
+        const costoSum = mVentas.reduce((acc, v) => acc + getProductCost(v.descripcion) * (Number(v.cantidad) || 1), 0)
+                       + mCompras.reduce((acc, c) => acc + (Number(c.total) || 0), 0);
+
+        return { ...m, ventasSum, cobradoSum, costoSum };
+      });
+
+      const maxVal = Math.max(1000, ...dataPerMonth.map(d => Math.max(d.ventasSum, d.costoSum)));
+      const yMax = Math.ceil(maxVal / 200) * 200;
+      const container = document.getElementById("chart-12-months");
+      const ySteps = [yMax, yMax * 0.75, yMax * 0.5, yMax * 0.25, 0];
+
+      container.innerHTML = `
+        <div class="absolute inset-x-10 top-4 bottom-6 flex flex-col justify-between pointer-events-none">
+          ${ySteps.map(val => `
+            <div class="w-full border-b border-gray-100 relative flex items-center">
+              <span class="absolute -left-10 text-[10px] text-gray-400 w-9 text-right">S/ ${Math.round(val)}</span>
+            </div>
+          `).join("")}
+        </div>
+        <div class="relative z-10 flex-1 grid grid-cols-12 gap-2 items-end h-full pt-2">
+          ${dataPerMonth.map(d => {
+            const hVentas = yMax > 0 ? Math.round((d.ventasSum / yMax) * 100) : 0;
+            const hCosto = yMax > 0 ? Math.round((d.costoSum / yMax) * 100) : 0;
+            const hCobrado = yMax > 0 ? Math.round((d.cobradoSum / yMax) * 100) : 0;
+            return `
+              <div class="flex flex-col items-center h-full justify-end group relative">
+                <div class="opacity-0 group-hover:opacity-100 transition pointer-events-none absolute -top-12 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap z-20 shadow">
+                  ${d.label}: Ventas ${formatMoney(d.ventasSum)} | Cobrado ${formatMoney(d.cobradoSum)}
+                </div>
+                <div class="w-full flex items-end justify-center gap-1 h-full">
+                  <div style="height: ${hCosto}%" class="w-2.5 bg-[#ef4444] rounded-t transition-all duration-300"></div>
+                  <div style="height: ${hVentas}%" class="w-3 bg-[#1d6fe2] rounded-t transition-all duration-300"></div>
+                  <div style="height: ${hCobrado}%" class="w-2.5 bg-[#10b981] rounded-t transition-all duration-300"></div>
+                </div>
+                <span class="text-[10px] text-gray-500 mt-2 whitespace-nowrap">${d.label}</span>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    function renderBottomCharts(filteredVentas) {
+      const clientStats = {};
+      filteredVentas.forEach(v => {
+        if (!clientStats[v.cliente]) clientStats[v.cliente] = { total: 0, pendiente: 0 };
+        const tot = Number(v.total) || 0;
+        const pag = Number(v.pagado) || 0;
+        clientStats[v.cliente].total += tot;
+        clientStats[v.cliente].pendiente += Math.max(0, tot - pag);
+      });
+
+      const sortedClients = Object.entries(clientStats).sort((a, b) => b[1].total - a[1].total);
+      const maxClientTotal = Math.max(100, ...sortedClients.map(c => c[1].total));
+      const clientContainer = document.getElementById("chart-clientes-bars");
+
+      if (sortedClients.length === 0) {
+        clientContainer.innerHTML = `<p class="text-xs text-gray-500">Sin ventas registradas en este periodo.</p>`;
+      } else {
+        clientContainer.innerHTML = sortedClients.map(([cli, st]) => {
+          const pctTotal = Math.round((st.total / maxClientTotal) * 100);
+          const pctDebt = Math.round((st.pendiente / maxClientTotal) * 100);
+          const clientObj = state.clientes.find(c => c.codigo === cli);
+          const origenTag = clientObj ? clientObj.origen : "OTROS";
+          return `
+            <div onclick="jumpToClientSales('${cli}')" class="cursor-pointer group">
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="font-medium text-gray-800 group-hover:underline">${cli} <span class="text-[10px] text-gray-400">(${origenTag})</span></span>
+                <span class="text-gray-700">
+                  Total: <strong>${formatMoney(st.total)}</strong>
+                  ${st.pendiente > 0 ? `<span class="text-amber-700 ml-1.5">(Debe: ${formatMoney(st.pendiente)})</span>` : `<span class="text-emerald-700 ml-1.5">(Al día)</span>`}
+                </span>
+              </div>
+              <div class="w-full h-3 bg-gray-100 rounded-sm overflow-hidden flex">
+                <div style="width: ${Math.max(0, pctTotal - pctDebt)}%" class="bg-[#10b981] h-full"></div>
+                <div style="width: ${pctDebt}%" class="bg-[#f59e0b] h-full"></div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      const prodStats = {};
+      filteredVentas.forEach(v => {
+        if (Array.isArray(v.items) && v.items.length > 0) {
+          v.items.forEach(it => {
+            prodStats[it.descripcion] = (prodStats[it.descripcion] || 0) + (Number(it.subtotal) || 0);
+          });
+        } else {
+          prodStats[v.descripcion] = (prodStats[v.descripcion] || 0) + (Number(v.total) || 0);
+        }
+      });
+
+      const sortedProds = Object.entries(prodStats).sort((a, b) => b[1] - a[1]);
+      const maxProdVal = Math.max(100, ...sortedProds.map(p => p[1]));
+      const prodContainer = document.getElementById("chart-repuestos-bars");
+
+      if (sortedProds.length === 0) {
+        prodContainer.innerHTML = `<p class="text-xs text-gray-500">Sin repuestos vendidos en este periodo.</p>`;
+      } else {
+        const barColors = ["bg-[#1d6fe2]", "bg-[#008a00]", "bg-[#0284c7]", "bg-[#059669]", "bg-[#2563eb]", "bg-[#16a34a]"];
+        prodContainer.innerHTML = sortedProds.map(([prodName, amount], idx) => {
+          const pct = Math.max(4, Math.round((amount / maxProdVal) * 100));
+          const color = barColors[idx % barColors.length];
+          return `
+            <div class="grid grid-cols-12 items-center gap-2 text-xs">
+              <div class="col-span-5 text-right pr-2 text-[11px] text-gray-600 truncate" title="${prodName}">
+                ${prodName}
+              </div>
+              <div class="col-span-5 bg-gray-100 h-4 rounded-r overflow-hidden">
+                <div style="width: ${pct}%" class="${color} h-full rounded-r"></div>
+              </div>
+              <div class="col-span-2 text-right font-medium text-gray-800 text-[11px]">
+                ${formatMoney(amount)}
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    // ============================================================================
+    // 6. VISTA 2: BUSCAR (CATÁLOGO DETALLADO Y CONSULTA DE STOCK)
+    // ============================================================================
+    function renderBuscarCatalog() {
+      const q = (document.getElementById("buscar-query").value || "").toLowerCase().trim();
+      const marcaFilter = document.getElementById("buscar-marca").value;
+      const stockFilter = document.getElementById("buscar-stock-filter").value;
+
+      const results = state.almacen.filter(item => {
+        if (marcaFilter !== "ALL") {
+          if (!item.compatibilidad.toUpperCase().includes(marcaFilter)) return false;
+        }
+        if (stockFilter === "NORMAL" && item.stock <= 5) return false;
+        if (stockFilter === "LOW" && item.stock > 5) return false;
+        if (q) {
+          const hay = `${item.id} ${item.descripcion} ${item.compatibilidad} ${item.detalles || ""} ${item.observacion || ""}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      const grid = document.getElementById("buscar-results-grid");
+      if (results.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 text-xs">
+            No se encontraron repuestos que coincidan con tu búsqueda.
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = results.map(item => {
+        const isLow = item.stock <= 3;
+        const stockBadge = isLow
+          ? "bg-red-100 text-red-800 border-red-200"
+          : item.stock <= 6
+          ? "bg-amber-50 text-amber-800 border-amber-200"
+          : "bg-emerald-50 text-emerald-800 border-emerald-200";
+
+        return `
+          <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between">
+            <div>
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-sans text-[10px] font-bold tracking-wider uppercase">
+                  CÓD. #${String(item.id).padStart(3, "0")} • ${item.compatibilidad}
+                </span>
+                <span class="px-2.5 py-0.5 rounded-full border text-xs font-bold ${stockBadge}">
+                  Stock: ${item.stock} ${item.und}
+                </span>
+              </div>
+
+              <h3 class="text-sm font-bold text-gray-900 leading-snug">${item.descripcion}</h3>
+
+              <div class="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
+                  <span class="text-[10px] text-gray-500 block">Precio de Venta</span>
+                  <span class="text-base font-bold text-gray-900">${formatMoney(item.pVenta)}</span>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
+                  <span class="text-[10px] text-gray-500 block">Compatibilidad / Marca</span>
+                  <span class="text-xs font-semibold text-gray-800">${item.compatibilidad}</span>
+                </div>
+              </div>
+
+              <div class="mt-3 space-y-1.5 text-xs text-gray-600">
+                <div>
+                  <strong class="text-gray-800">Detalles:</strong> ${item.detalles || "Repuesto estándar en almacén"}
+                </div>
+                <div>
+                  <strong class="text-gray-800">Observaciones:</strong>
+                  <span class="${isLow ? 'text-red-600 font-medium' : 'text-gray-600'}">${item.observacion || "Sin observaciones"}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+              <button onclick="openProductModal(${item.id})" class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs text-gray-700">
+                Ver / Editar Ficha
+              </button>
+              <button onclick="addProductToPosAndGo(${item.id})" class="px-3.5 py-1.5 rounded-lg bg-[#101929] hover:bg-black text-white text-xs font-medium flex items-center gap-1.5">
+                <i data-lucide="shopping-cart" class="w-3.5 h-3.5"></i>
+                <span>Vender Ahora</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+      lucide.createIcons();
+    }
+
+    function addProductToPosAndGo(prodId) {
+      addProductToPosCart(prodId);
+      switchTab("registrar-venta");
+    }
+
+    // ============================================================================
+    // 7. VISTA 3: REGISTRAR VENTA (POS CENTRO COMERCIAL + BUSCADOR DE CLIENTES)
+    // ============================================================================
+    function renderPosView() {
+      renderPosProductPicker();
+      renderPosCartTable();
+      // Si aún no hay cliente seleccionado en el POS, preseleccionar el primero (TALLER)
+      if (!state.posSelectedClient && state.clientes.length > 0) {
+        selectPosClient(state.clientes[0].codigo);
+      }
+    }
+
+    function renderPosProductPicker() {
+      const q = (document.getElementById("pos-product-search").value || "").toLowerCase().trim();
+      const listEl = document.getElementById("pos-product-list");
+
+      const matches = state.almacen.filter(a => {
+        if (!q) return true;
+        return `${a.descripcion} ${a.compatibilidad} ${a.detalles || ""}`.toLowerCase().includes(q);
+      });
+
+      if (matches.length === 0) {
+        listEl.innerHTML = `<div class="p-4 text-center text-xs text-gray-400">No se encontraron productos con ese nombre.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = matches.map(prod => {
+        const inCart = state.posCart.find(c => c.productId === prod.id);
+        const stockLeft = prod.stock - (inCart ? inCart.cantidad : 0);
+        const noStock = prod.stock <= 0;
+
+        return `
+          <div class="p-2.5 px-3.5 hover:bg-gray-50 flex items-center justify-between gap-3 text-xs transition">
+            <div class="min-w-0 flex-1">
+              <div class="font-bold text-gray-900 truncate">${prod.descripcion}</div>
+              <div class="text-[11px] text-gray-500 flex flex-wrap items-center gap-2 mt-0.5">
+                <span class="px-1.5 py-0.2 bg-gray-100 rounded text-gray-700 font-medium">${prod.compatibilidad}</span>
+                <span>• Stock Almacén: <strong class="${prod.stock <= 3 ? 'text-red-600' : 'text-emerald-700'}">${prod.stock} ${prod.und}</strong></span>
+                ${inCart ? `<span class="text-blue-700 font-semibold">(En carrito: ${inCart.cantidad})</span>` : ""}
+              </div>
+            </div>
+            <div class="flex items-center gap-3 flex-shrink-0">
+              <div class="text-right">
+                <div class="font-bold text-gray-900">${formatMoney(prod.pVenta)}</div>
+                <div class="text-[10px] text-gray-400">c/u</div>
+              </div>
+              <button
+                type="button"
+                onclick="addProductToPosCart(${prod.id})"
+                ${noStock ? "disabled" : ""}
+                class="px-3 py-1.5 rounded-lg ${noStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-[#101929] hover:bg-black text-white'} font-medium text-xs flex items-center gap-1 transition"
+              >
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>Agregar</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+      lucide.createIcons();
+    }
+
+    function addProductToPosCart(prodId) {
+      const prod = state.almacen.find(a => a.id === Number(prodId));
+      if (!prod) return;
+      if (prod.stock <= 0) {
+        showToast(`El producto "${prod.descripcion}" no tiene stock disponible.`, "warning");
+        return;
+      }
+
+      const existing = state.posCart.find(c => c.productId === prod.id);
+      if (existing) {
+        if (existing.cantidad + 1 > prod.stock) {
+          showToast(`Stock máximo alcanzado (${prod.stock} ${prod.und} disponibles)`, "warning");
+          return;
+        }
+        existing.cantidad += 1;
+        existing.subtotal = existing.cantidad * existing.precioUnit;
+      } else {
+        // Por defecto la cantidad empieza en 1 como pidió el usuario
+        state.posCart.push({
+          productId: prod.id,
+          descripcion: prod.descripcion,
+          compatibilidad: prod.compatibilidad,
+          stockMax: prod.stock,
+          cantidad: 1,
+          precioUnit: Number(prod.pVenta) || 0,
+          subtotal: Number(prod.pVenta) || 0
+        });
+      }
+
+      updateSidebarCounters();
+      renderPosProductPicker();
+      renderPosCartTable();
+    }
+
+    function updatePosCartQty(prodId, newQty) {
+      const item = state.posCart.find(c => c.productId === Number(prodId));
+      const prod = state.almacen.find(a => a.id === Number(prodId));
+      if (!item || !prod) return;
+
+      let qty = parseInt(newQty, 10);
+      if (isNaN(qty) || qty < 1) qty = 1;
+      if (qty > prod.stock) {
+        qty = prod.stock;
+        showToast(`Solo hay ${prod.stock} unidades disponibles en stock`, "warning");
+      }
+      item.cantidad = qty;
+      item.subtotal = item.cantidad * item.precioUnit;
+      updateSidebarCounters();
+      renderPosProductPicker();
+      renderPosCartTable();
+    }
+
+    function updatePosCartUnitPrice(prodId, newPrice) {
+      if (!hasPermission("modificar_precios") && !state.tempPriceOverride) {
+        requestAdminAuthorization("Modificar el precio unitario de venta requiere autorización de Administrador.", () => {
+          state.tempPriceOverride = true;
+          renderPosCartTable();
+          showToast("Edición de precios desbloqueada para esta sesión", "success");
+        });
+        renderPosCartTable();
+        return;
+      }
+      const item = state.posCart.find(c => c.productId === Number(prodId));
+      if (!item) return;
+      const p = Math.max(0, Number(newPrice) || 0);
+      item.precioUnit = p;
+      item.subtotal = item.cantidad * item.precioUnit;
+      recalcPosTotals();
+      renderPosCartTable();
+    }
+
+    function removePosCartItem(prodId) {
+      state.posCart = state.posCart.filter(c => c.productId !== Number(prodId));
+      updateSidebarCounters();
+      renderPosProductPicker();
+      renderPosCartTable();
+    }
+
+    function clearPosCart() {
+      state.posCart = [];
+      updateSidebarCounters();
+      renderPosProductPicker();
+      renderPosCartTable();
+    }
+
+    function renderPosCartTable() {
+      const tbody = document.getElementById("pos-cart-tbody");
+      const badge = document.getElementById("pos-cart-summary-badge");
+      badge.textContent = `${state.posCart.length} producto(s) en la lista`;
+
+      const canEditPrice = hasPermission("modificar_precios") || state.tempPriceOverride;
+
+      if (state.posCart.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="py-10 text-center text-gray-400 text-xs">
+              Tu lista de venta está vacía. Haz clic en <strong>"+ Agregar"</strong> en cualquier repuesto de arriba para añadirlo (cantidad por defecto = 1).
+            </td>
+          </tr>
+        `;
+        recalcPosTotals();
+        return;
+      }
+
+      tbody.innerHTML = state.posCart.map(item => {
+        const prod = state.almacen.find(a => a.id === item.productId);
+        const currentStock = prod ? prod.stock : item.stockMax;
+
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="py-3 px-3">
+              <div class="font-bold text-gray-900">${item.descripcion}</div>
+              <div class="text-[10px] text-gray-500">${item.compatibilidad}</div>
+            </td>
+            <td class="py-3 px-2 text-center">
+              <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold text-[11px]">${currentStock} und.</span>
+            </td>
+            <td class="py-3 px-2 text-center">
+              <div class="inline-flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
+                <button type="button" onclick="updatePosCartQty(${item.productId}, ${item.cantidad - 1})" class="px-2 py-1 hover:bg-gray-100 text-gray-700 font-bold">-</button>
+                <input
+                  type="number"
+                  min="1"
+                  max="${currentStock}"
+                  value="${item.cantidad}"
+                  onchange="updatePosCartQty(${item.productId}, this.value)"
+                  class="w-12 text-center text-xs font-bold py-1 focus:outline-none"
+                />
+                <button type="button" onclick="updatePosCartQty(${item.productId}, ${item.cantidad + 1})" class="px-2 py-1 hover:bg-gray-100 text-gray-700 font-bold">+</button>
+              </div>
+            </td>
+            <td class="py-3 px-3 text-right">
+              <input
+                type="number"
+                step="0.01"
+                value="${item.precioUnit}"
+                ${canEditPrice ? "" : "readonly"}
+                onchange="updatePosCartUnitPrice(${item.productId}, this.value)"
+                title="${canEditPrice ? 'Editar precio unitario' : 'Precio bloqueado (Solo Admin)'}"
+                class="input-clean w-20 text-right text-xs py-1 px-2"
+              />
+            </td>
+            <td class="py-3 px-3 text-right font-bold text-gray-900 whitespace-nowrap">
+              ${formatMoney(item.subtotal)}
+            </td>
+            <td class="py-3 px-2 text-center">
+              <button type="button" onclick="removePosCartItem(${item.productId})" class="p-1 text-gray-400 hover:text-red-600 rounded">
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      recalcPosTotals();
+      lucide.createIcons();
+    }
+
+    // Buscador Inteligente de Clientes Frecuentes + Desbloqueo de "OTROS"
+    function openPosClientDropdown() {
+      const q = document.getElementById("pos-client-search-input").value;
+      renderPosClientDropdownList(q);
+      document.getElementById("pos-client-dropdown").classList.remove("hidden");
+    }
+
+    function togglePosClientDropdown() {
+      const dd = document.getElementById("pos-client-dropdown");
+      if (dd.classList.contains("hidden")) {
+        openPosClientDropdown();
+      } else {
+        dd.classList.add("hidden");
+      }
+    }
+
+    function onPosClientSearchInput(val) {
+      renderPosClientDropdownList(val);
+      document.getElementById("pos-client-dropdown").classList.remove("hidden");
+    }
+
+    function renderPosClientDropdownList(query = "") {
+      const q = (query || "").toLowerCase().trim();
+      const debtMap = getClientDebtMap();
+      const dd = document.getElementById("pos-client-dropdown");
+
+      const filteredClients = state.clientes.filter(c => {
+        if (!q) return true;
+        return `${c.codigo} ${c.nombre} ${c.origen}`.toLowerCase().includes(q);
+      });
+
+      const clientItemsHtml = filteredClients.map(c => {
+        const debtInfo = debtMap[c.codigo.toUpperCase()];
+        const hasDebt = debtInfo && debtInfo.saldo > 0;
+        return `
+          <button
+            type="button"
+            onclick="selectPosClient('${c.codigo}')"
+            class="w-full text-left px-3.5 py-2.5 hover:bg-gray-50 flex items-center justify-between gap-2 text-xs transition"
+          >
+            <div>
+              <span class="font-bold text-gray-900">${c.codigo}</span>
+              <span class="text-gray-600 ml-1.5">— ${c.nombre}</span>
+              <span class="ml-1.5 px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px]">${c.origen}</span>
+            </div>
+            ${hasDebt
+              ? `<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] whitespace-nowrap">Debe ${formatMoney(debtInfo.saldo)}</span>`
+              : `<span class="text-[10px] text-emerald-600">Al día</span>`
+            }
+          </button>
+        `;
+      }).join("");
+
+      // Opción fija al final para seleccionar "OTROS" y desbloquear los campos manuales
+      const otrosOptionHtml = `
+        <button
+          type="button"
+          onclick="selectPosClient('OTROS')"
+          class="w-full text-left px-3.5 py-3 bg-slate-50 hover:bg-slate-100 flex items-center justify-between gap-2 text-xs font-bold text-[#101929] border-t border-gray-200"
+        >
+          <div class="flex items-center gap-2">
+            <i data-lucide="edit-3" class="w-4 h-4 text-blue-600"></i>
+            <span>OTROS (Desbloquear y rellenar cliente manualmente)</span>
+          </div>
+          <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px]">Manual</span>
+        </button>
+      `;
+
+      dd.innerHTML = clientItemsHtml + otrosOptionHtml;
+      lucide.createIcons();
+    }
+
+    function selectPosClient(codigo) {
+      const dd = document.getElementById("pos-client-dropdown");
+      dd.classList.add("hidden");
+
+      const searchInput = document.getElementById("pos-client-search-input");
+      const codInput = document.getElementById("pos-client-codigo");
+      const oriInput = document.getElementById("pos-client-origen");
+      const nomInput = document.getElementById("pos-client-nombre");
+      const modeBadge = document.getElementById("pos-manual-mode-badge");
+      const debtAlert = document.getElementById("pos-selected-client-debt-alert");
+      const debtText = document.getElementById("pos-selected-client-debt-text");
+
+      if (codigo === "OTROS") {
+        state.posSelectedClient = { codigo: "OTROS", isManual: true };
+        searchInput.value = "OTROS (Rellenar manualmente)";
+        codInput.removeAttribute("readonly");
+        oriInput.removeAttribute("readonly");
+        nomInput.removeAttribute("readonly");
+
+        codInput.value = "";
+        oriInput.value = "PARTICULAR";
+        nomInput.value = "";
+        codInput.placeholder = "Escribe Código / Placa / DNI...";
+        nomInput.placeholder = "Escribe el nombre del cliente...";
+        codInput.focus();
+
+        modeBadge.textContent = "Modo Manual Desbloqueado (OTROS)";
+        modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold";
+        debtAlert.classList.add("hidden");
+      } else {
+        const cli = state.clientes.find(c => c.codigo === codigo);
+        if (!cli) return;
+        state.posSelectedClient = { ...cli, isManual: false };
+        searchInput.value = `${cli.codigo} — ${cli.nombre} (${cli.origen})`;
+
+        codInput.setAttribute("readonly", "true");
+        oriInput.setAttribute("readonly", "true");
+        nomInput.setAttribute("readonly", "true");
+
+        codInput.value = cli.codigo;
+        oriInput.value = cli.origen;
+        nomInput.value = cli.nombre;
+
+        modeBadge.textContent = "Autorellenado (Cliente Frecuente)";
+        modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600";
+
+        // Verificar si mantiene deuda pendiente
+        const debtMap = getClientDebtMap();
+        const dInfo = debtMap[cli.codigo.toUpperCase()];
+        if (dInfo && dInfo.saldo > 0) {
+          debtAlert.classList.remove("hidden");
+          debtText.innerHTML = `Atención: <strong>${cli.codigo}</strong> mantiene una deuda acumulada de <strong>${formatMoney(dInfo.saldo)}</strong>.`;
+        } else {
+          debtAlert.classList.add("hidden");
+        }
+      }
+    }
+
+    // Cerrar dropdown de clientes al hacer clic fuera
+    document.addEventListener("click", (e) => {
+      const dd = document.getElementById("pos-client-dropdown");
+      const inp = document.getElementById("pos-client-search-input");
+      if (dd && inp && !dd.contains(e.target) && !inp.contains(e.target)) {
+        dd.classList.add("hidden");
+      }
+    });
+
+    function onPosPaymentModeChange(mode) {
+      const adelantoBox = document.getElementById("pos-adelanto-box");
+      if (mode === "ADELANTO") {
+        adelantoBox.classList.remove("hidden");
+      } else {
+        adelantoBox.classList.add("hidden");
+      }
+      recalcPosTotals();
+    }
+
+    function recalcPosTotals() {
+      const totalUnits = state.posCart.reduce((acc, i) => acc + (Number(i.cantidad) || 0), 0);
+      const totalAmount = state.posCart.reduce((acc, i) => acc + (Number(i.subtotal) || 0), 0);
+      const payMode = document.getElementById("pos-payment-mode").value;
+
+      let paidAmount = 0;
+      if (payMode === "CONTADO") {
+        paidAmount = totalAmount;
+      } else if (payMode === "CREDITO") {
+        paidAmount = 0;
+      } else if (payMode === "ADELANTO") {
+        paidAmount = Math.min(totalAmount, Math.max(0, Number(document.getElementById("pos-adelanto-input").value) || 0));
+      }
+
+      const balance = Math.max(0, totalAmount - paidAmount);
+
+      document.getElementById("pos-summary-units").textContent = `${totalUnits} und.`;
+      document.getElementById("pos-summary-total").textContent = formatMoney(totalAmount);
+      document.getElementById("pos-summary-paid").textContent = formatMoney(paidAmount);
+      document.getElementById("pos-summary-balance").textContent = formatMoney(balance);
+    }
+
+    function submitPosSale() {
+      if (state.posCart.length === 0) {
+        showToast("Agrega al menos un producto a la venta antes de procesar", "warning");
+        return;
+      }
+
+      const codigoCli = (document.getElementById("pos-client-codigo").value || "").trim().toUpperCase() || "OTRO";
+      const origenCli = (document.getElementById("pos-client-origen").value || "").trim().toUpperCase() || "OTROS";
+      const nombreCli = (document.getElementById("pos-client-nombre").value || "").trim() || "Cliente Particular";
+      const fecha = document.getElementById("pos-fecha").value || "2026-11-09";
+      const payMode = document.getElementById("pos-payment-mode").value;
+      const observacion = document.getElementById("pos-observacion").value.trim();
+
+      const totalUnits = state.posCart.reduce((acc, i) => acc + i.cantidad, 0);
+      const totalAmount = state.posCart.reduce((acc, i) => acc + i.subtotal, 0);
+
+      let pagado = 0;
+      let estado = "Por Cancelar";
+
+      if (payMode === "CONTADO") {
+        pagado = totalAmount;
+        estado = "Cancelado";
+      } else if (payMode === "ADELANTO") {
+        pagado = Math.min(totalAmount, Math.max(0, Number(document.getElementById("pos-adelanto-input").value) || 0));
+        estado = pagado >= totalAmount && totalAmount > 0 ? "Cancelado" : "Por Cancelar";
+      } else {
+        pagado = 0;
+        estado = "Por Cancelar";
+      }
+
+      const summaryDesc = state.posCart.map(i => `${i.cantidad}x ${i.descripcion}`).join(" + ");
+      const unitPriceRef = state.posCart.length === 1 ? state.posCart[0].precioUnit : totalAmount;
+
+      const newId = state.ventas.reduce((max, v) => Math.max(max, v.id), 0) + 1;
+      state.ventas.push({
+        id: newId,
+        fecha,
+        cliente: codigoCli,
+        clienteNombre: nombreCli,
+        origen: origenCli,
+        descripcion: state.posCart.length === 1 ? state.posCart[0].descripcion : summaryDesc,
+        cantidad: totalUnits,
+        precioUnit: unitPriceRef,
+        total: totalAmount,
+        pagado,
+        estado,
+        observacion,
+        items: JSON.parse(JSON.stringify(state.posCart))
+      });
+
+      // Descontar del Stock en Almacén cada uno de los productos vendidos
+      state.posCart.forEach(cartItem => {
+        const prod = state.almacen.find(a => a.id === cartItem.productId);
+        if (prod) {
+          prod.stock = Math.max(0, (Number(prod.stock) || 0) - cartItem.cantidad);
+        }
+      });
+
+      // Limpiar carrito
+      state.posCart = [];
+      document.getElementById("pos-observacion").value = "";
+      document.getElementById("pos-adelanto-input").value = "0";
+      document.getElementById("pos-payment-mode").value = "CREDITO";
+      onPosPaymentModeChange("CREDITO");
+
+      saveState();
+      renderAll();
+      showToast(`Venta #${newId} registrada exitosamente para ${codigoCli} (${formatMoney(totalAmount)})`, "success");
+      switchTab("historial-ventas");
+    }
+
+    // ============================================================================
+    // 8. VISTA 4: HISTORIAL DE VENTAS E IMPRESIÓN DE REPORTES
+    // ============================================================================
+    function populateVentasFilterDropdowns() {
+      const cliSelect = document.getElementById("filter-ventas-cliente");
+      const currentCli = cliSelect.value || "all";
+      const allClientCodes = Array.from(new Set([
+        ...state.clientes.map(c => c.codigo),
+        ...state.ventas.map(v => v.cliente)
+      ]));
+      cliSelect.innerHTML = `<option value="all">all (Todos los clientes)</option>` +
+        allClientCodes.map(code => `<option value="${code}">${code}</option>`).join("");
+      cliSelect.value = currentCli;
+
+      const prodSelect = document.getElementById("filter-ventas-producto");
+      const currentProd = prodSelect.value || "all";
+      prodSelect.innerHTML = `<option value="all">all (Todos los repuestos)</option>` +
+        state.almacen.map(a => `<option value="${a.descripcion}">${a.descripcion}</option>`).join("");
+      prodSelect.value = currentProd;
+    }
+
+    function clearVentasFilters() {
+      document.getElementById("filter-ventas-estado").value = "all";
+      document.getElementById("filter-ventas-cliente").value = "all";
+      document.getElementById("filter-ventas-producto").value = "all";
+      document.getElementById("filter-ventas-search").value = "";
+      renderVentasTable();
+    }
+
+    function getFilteredVentasForTable() {
+      const fEstado = document.getElementById("filter-ventas-estado").value;
+      const fCliente = document.getElementById("filter-ventas-cliente").value;
+      const fProducto = document.getElementById("filter-ventas-producto").value;
+      const fSearch = (document.getElementById("filter-ventas-search").value || "").toLowerCase().trim();
+
+      return state.ventas.filter(v => {
+        if (fEstado !== "all" && v.estado !== fEstado) return false;
+        if (fCliente !== "all" && v.cliente !== fCliente) return false;
+        if (fProducto !== "all") {
+          const matchMain = v.descripcion.includes(fProducto);
+          const matchSub = Array.isArray(v.items) && v.items.some(it => it.descripcion === fProducto);
+          if (!matchMain && !matchSub) return false;
+        }
+        if (fSearch) {
+          const hay = `${v.id} ${v.cliente} ${v.clienteNombre || ""} ${v.descripcion} ${v.observacion || ""} ${v.fecha}`.toLowerCase();
+          if (!hay.includes(fSearch)) return false;
+        }
+        return true;
+      }).sort((a, b) => (b.fecha || "").localeCompare(a.fecha || "") || b.id - a.id);
+    }
+
+    function renderVentasTable() {
+      const filtered = getFilteredVentasForTable();
+      const sumTotal = filtered.reduce((acc, v) => acc + (Number(v.total) || 0), 0);
+      const sumPagado = filtered.reduce((acc, v) => acc + (Number(v.pagado) || 0), 0);
+      const sumSaldo = Math.max(0, sumTotal - sumPagado);
+
+      document.getElementById("ventas-filter-summary").innerHTML = `
+        <div>Mostrando <strong>${filtered.length}</strong> ventas registradas</div>
+        <div class="flex flex-wrap items-center gap-4">
+          <span>Total Facturado: <strong>${formatMoney(sumTotal)}</strong></span>
+          <span>Cobrado / Adelantos: <strong class="text-emerald-700">${formatMoney(sumPagado)}</strong></span>
+          <span>Saldo Pendiente: <strong class="text-amber-800">${formatMoney(sumSaldo)}</strong></span>
+        </div>
+      `;
+
+      const tbody = document.getElementById("ventas-table-body");
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-gray-400">No se encontraron ventas con los filtros seleccionados.</td></tr>`;
+        return;
+      }
+
+      const canDelete = hasPermission("eliminar_ventas");
+
+      tbody.innerHTML = filtered.map(v => {
+        const total = Number(v.total) || 0;
+        const pagado = Number(v.pagado) || 0;
+        const saldo = Math.max(0, total - pagado);
+        const isPending = v.estado === "Por Cancelar";
+
+        const badgeClass = isPending
+          ? "bg-[#14171f] text-white hover:bg-gray-800"
+          : "bg-[#f3f4f6] text-gray-800 hover:bg-gray-200";
+
+        let itemsDetailHtml = `<div class="font-medium text-gray-900">${v.descripcion}</div>`;
+        if (Array.isArray(v.items) && v.items.length > 1) {
+          itemsDetailHtml = v.items.map(it =>
+            `<div class="text-[11px] text-gray-800">• <strong>${it.cantidad}x</strong> ${it.descripcion} <span class="text-gray-500">(${formatMoney(it.subtotal)})</span></div>`
+          ).join("");
+        }
+
+        return `
+          <tr class="hover:bg-gray-50/80 transition group">
+            <td class="py-3 px-3 text-gray-400 font-mono">#${v.id}</td>
+            <td class="py-3 px-3 whitespace-nowrap">
+              <div class="font-bold text-gray-900">${v.cliente}</div>
+              <div class="text-[10px] text-gray-400">${v.clienteNombre || v.origen || ""}</div>
+            </td>
+            <td class="py-3 px-3">
+              ${itemsDetailHtml}
+              ${v.observacion ? `<div class="text-[10px] text-amber-700 mt-0.5">Obs: ${v.observacion}</div>` : ""}
+            </td>
+            <td class="py-3 px-3 text-gray-700 whitespace-nowrap">${formatDatePE(v.fecha)}</td>
+            <td class="py-3 px-3 text-center text-gray-700 font-medium">${v.cantidad}</td>
+            <td class="py-3 px-3 text-right text-gray-900 font-medium whitespace-nowrap">${formatMoney(total)}</td>
+            <td class="py-3 px-3 text-right text-emerald-700 whitespace-nowrap">${formatMoney(pagado)}</td>
+            <td class="py-3 px-3 text-right font-bold text-gray-900 whitespace-nowrap">${formatMoney(saldo)}</td>
+            <td class="py-3 px-3 whitespace-nowrap">
+              <button onclick="toggleSaleStatus(${v.id})" title="Clic para alternar Cancelado / Por Cancelar" class="px-2.5 py-0.5 rounded-full text-[11px] font-medium transition cursor-pointer ${badgeClass}">
+                ${v.estado}
+              </button>
+            </td>
+            <td class="py-3 px-2 text-right whitespace-nowrap">
+              <div class="inline-flex items-center gap-1">
+                <button onclick="openAbonoModal(${v.id})" class="p-1 text-gray-500 hover:text-black rounded hover:bg-gray-100" title="Registrar adelanto o editar pago">
+                  <i data-lucide="coins" class="w-3.5 h-3.5"></i>
+                </button>
+                <button onclick="attemptDeleteSale(${v.id})" class="p-1 ${canDelete ? 'text-gray-400 hover:text-red-600' : 'text-gray-300 hover:text-amber-600'} rounded hover:bg-red-50" title="${canDelete ? 'Eliminar registro' : 'Requiere clave de Administrador'}">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+      lucide.createIcons();
+    }
+
+    function toggleSaleStatus(saleId) {
+      const item = state.ventas.find(v => v.id === saleId);
+      if (!item) return;
+      if (item.estado === "Por Cancelar") {
+        item.estado = "Cancelado";
+        item.pagado = Number(item.total) || 0;
+        showToast(`Venta #${item.id} (${item.cliente}) marcada como Cancelado`, "success");
+      } else {
+        item.estado = "Por Cancelar";
+        item.pagado = 0;
+        showToast(`Venta #${item.id} (${item.cliente}) cambiada a Por Cancelar`, "info");
+      }
+      saveState();
+      renderAll();
+    }
+
+    function openAbonoModal(saleId) {
+      const v = state.ventas.find(x => x.id === saleId);
+      if (!v) return;
+      document.getElementById("abono-venta-id").value = v.id;
+      document.getElementById("abono-cliente-label").textContent = `${v.cliente} (${v.descripcion})`;
+      document.getElementById("abono-total-label").textContent = formatMoney(v.total);
+      document.getElementById("abono-pagado-input").value = v.pagado;
+      document.getElementById("abono-obs-input").value = v.observacion || "";
+      const m = document.getElementById("modal-abono-venta");
+      m.classList.remove("hidden");
+      m.classList.add("flex");
+    }
+
+    function closeAbonoModal() {
+      const m = document.getElementById("modal-abono-venta");
+      m.classList.add("hidden");
+      m.classList.remove("flex");
+    }
+
+    function handleAbonoSubmit(e) {
+      e.preventDefault();
+      const id = Number(document.getElementById("abono-venta-id").value);
+      const v = state.ventas.find(x => x.id === id);
+      if (!v) return;
+      const pagado = Math.max(0, Number(document.getElementById("abono-pagado-input").value) || 0);
+      v.pagado = pagado;
+      v.estado = pagado >= v.total && v.total > 0 ? "Cancelado" : "Por Cancelar";
+      v.observacion = document.getElementById("abono-obs-input").value.trim();
+      saveState();
+      closeAbonoModal();
+      renderAll();
+      showToast(`Pago actualizado en venta #${v.id}`, "success");
+    }
+
+    function attemptDeleteSale(saleId) {
+      if (hasPermission("eliminar_ventas")) {
+        executeDeleteSale(saleId);
+      } else {
+        requestAdminAuthorization("Solo con acceso de Administrador puedes eliminar registros del Historial de Ventas.", () => {
+          executeDeleteSale(saleId);
+        });
+      }
+    }
+
+    function executeDeleteSale(saleId) {
+      const idx = state.ventas.findIndex(v => v.id === saleId);
+      if (idx === -1) return;
+      const removed = state.ventas.splice(idx, 1)[0];
+      saveState();
+      renderAll();
+      showToast(`Venta #${removed.id} de ${removed.cliente} eliminada por Administrador`, "info");
+    }
+
+    // Impresión de Reportes (Semanal, Mensual, Anual)
+    function onReportTypeChange() {
+      const type = document.getElementById("report-period-type").value;
+      const picker = document.getElementById("report-month-picker");
+      picker.style.display = type === "MENSUAL" ? "inline-block" : "none";
+    }
+
+    function openPrintReportModal() {
+      const type = document.getElementById("report-period-type").value;
+      const monthVal = document.getElementById("report-month-picker").value || "2026-09";
+
+      let rows = [];
+      let titlePeriod = "";
+
+      if (type === "MENSUAL") {
+        rows = state.ventas.filter(v => (v.fecha || "").startsWith(monthVal));
+        titlePeriod = `REPORTE MENSUAL DE VENTAS (${monthVal})`;
+      } else if (type === "ANUAL") {
+        const year = monthVal.split("-")[0] || "2026";
+        rows = state.ventas.filter(v => (v.fecha || "").startsWith(year));
+        titlePeriod = `REPORTE ANUAL DE VENTAS (AÑO ${year})`;
+      } else if (type === "SEMANAL") {
+        // Toma los últimos 7 días con respecto a la fecha más reciente registrada o mes actual
+        const sortedDates = state.ventas.map(v => v.fecha).sort();
+        const latestDateStr = sortedDates[sortedDates.length - 1] || "2026-10-17";
+        const latestDate = new Date(latestDateStr + "T00:00:00");
+        const weekAgo = new Date(latestDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+        rows = state.ventas.filter(v => {
+          const d = new Date((v.fecha || "2026-01-01") + "T00:00:00");
+          return d >= weekAgo && d <= latestDate;
+        });
+        titlePeriod = `REPORTE SEMANAL DE VENTAS (${formatDatePE(weekAgo.toISOString().slice(0, 10))} al ${formatDatePE(latestDateStr)})`;
+      } else {
+        rows = getFilteredVentasForTable();
+        titlePeriod = `REPORTE DE VENTAS (SEGÚN FILTRO EN PANTALLA)`;
+      }
+
+      const sumTotal = rows.reduce((s, r) => s + (Number(r.total) || 0), 0);
+      const sumPagado = rows.reduce((s, r) => s + (Number(r.pagado) || 0), 0);
+      const sumSaldo = Math.max(0, sumTotal - sumPagado);
+
+      const area = document.getElementById("print-report-area");
+      area.innerHTML = `
+        <div class="border-b-2 border-gray-900 pb-4 flex items-center justify-between">
+          <div>
+            <h1 class="text-lg font-bold tracking-wider text-gray-900">ANAROSA — REPUESTOS Y ACCESORIOS</h1>
+            <p class="text-xs text-gray-600">${titlePeriod}</p>
+            <p class="text-[11px] text-gray-500">Emitido por: ${state.currentUser ? state.currentUser.username : 'ANAROSA'} | Fecha de impresión: ${new Date().toLocaleDateString('es-PE')}</p>
+          </div>
+          <div class="text-right text-xs">
+            <div>Total Registros: <strong>${rows.length}</strong></div>
+            <div>Total Facturado: <strong>${formatMoney(sumTotal)}</strong></div>
+            <div>Saldo por Cobrar: <strong>${formatMoney(sumSaldo)}</strong></div>
+          </div>
+        </div>
+
+        <table class="w-full text-left border-collapse text-[11px] mt-4">
+          <thead>
+            <tr class="border-b border-gray-400 text-gray-900 font-bold">
+              <th class="py-2 px-2">N°</th>
+              <th class="py-2 px-2">Fecha</th>
+              <th class="py-2 px-2">Cliente</th>
+              <th class="py-2 px-2">Repuesto / Descripción</th>
+              <th class="py-2 px-2 text-center">Cant.</th>
+              <th class="py-2 px-2 text-right">Total</th>
+              <th class="py-2 px-2 text-right">Pagado</th>
+              <th class="py-2 px-2 text-right">Saldo</th>
+              <th class="py-2 px-2">Estado</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            ${rows.map(r => {
+              const saldo = Math.max(0, (Number(r.total) || 0) - (Number(r.pagado) || 0));
+              return `
+                <tr>
+                  <td class="py-1.5 px-2">#${r.id}</td>
+                  <td class="py-1.5 px-2">${formatDatePE(r.fecha)}</td>
+                  <td class="py-1.5 px-2 font-semibold">${r.cliente}</td>
+                  <td class="py-1.5 px-2">${r.descripcion}</td>
+                  <td class="py-1.5 px-2 text-center">${r.cantidad}</td>
+                  <td class="py-1.5 px-2 text-right">${formatMoney(r.total)}</td>
+                  <td class="py-1.5 px-2 text-right">${formatMoney(r.pagado)}</td>
+                  <td class="py-1.5 px-2 text-right font-bold">${formatMoney(saldo)}</td>
+                  <td class="py-1.5 px-2">${r.estado}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+          <tfoot>
+            <tr class="border-t-2 border-gray-900 font-bold text-xs">
+              <td colspan="5" class="py-2.5 px-2 text-right">TOTALES DEL PERIODO:</td>
+              <td class="py-2.5 px-2 text-right">${formatMoney(sumTotal)}</td>
+              <td class="py-2.5 px-2 text-right">${formatMoney(sumPagado)}</td>
+              <td class="py-2.5 px-2 text-right">${formatMoney(sumSaldo)}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+
+      const modal = document.getElementById("modal-print-report");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function closePrintReportModal() {
+      const modal = document.getElementById("modal-print-report");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    // ============================================================================
+    // 9. VISTA 5: COMPRAS Y ALMACÉN (CON BLOQUEO DE EDICIÓN DE PRECIOS)
+    // ============================================================================
+    function renderAlmacenView() {
+      const compraSel = document.getElementById("compra-producto-id");
+      const prevVal = compraSel.value;
+      compraSel.innerHTML = `<option value="">Selecciona repuesto o gasto...</option>` +
+        `<optgroup label="Ingresar Stock a Repuesto del Almacén">` +
+        state.almacen.map(a => `<option value="PROD_${a.id}">${a.descripcion} (Stock: ${a.stock})</option>`).join("") +
+        `</optgroup>` +
+        `<optgroup label="Gastos Operativos del Negocio">` +
+        `<option value="GASTO_Flete / Encomienda">Gasto: Flete / Encomienda</option>` +
+        `<option value="GASTO_Movilidad / Combustible">Gasto: Movilidad / Combustible</option>` +
+        `<option value="GASTO_Materiales / Embalaje">Gasto: Materiales / Embalaje</option>` +
+        `</optgroup>`;
+      if (prevVal) compraSel.value = prevVal;
+
+      const lowStockCount = state.almacen.filter(a => Number(a.stock) <= 3).length;
+      document.getElementById("almacen-low-stock-count").textContent = lowStockCount;
+
+      const canEditPrices = hasPermission("modificar_precios") || state.tempPriceOverride;
+      const permBadge = document.getElementById("almacen-price-perm-badge");
+      if (canEditPrices) {
+        permBadge.className = "px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-medium";
+        permBadge.textContent = "Edición de Precios: Habilitada (Admin)";
+      } else {
+        permBadge.className = "px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-[11px] font-medium";
+        permBadge.textContent = "Edición de Precios: Protegida con Clave Admin";
+      }
+
+      const tbody = document.getElementById("almacen-table-body");
+      tbody.innerHTML = state.almacen.map((item, index) => {
+        const pCompra = Number(item.pCompra) || 0;
+        const pVenta = Number(item.pVenta) || 0;
+        const ganancia = pVenta - pCompra;
+        const isLow = Number(item.stock) <= 3;
+
+        return `
+          <tr class="hover:bg-gray-50 transition">
+            <td class="py-3 px-4 text-gray-400 font-medium">${index + 1}</td>
+            <td class="py-3 px-4 font-bold text-gray-900">${item.descripcion}</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[11px] font-medium">${item.compatibilidad}</span>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <span class="px-2.5 py-0.5 rounded-full font-bold ${isLow ? 'bg-red-100 text-red-800' : 'bg-emerald-50 text-emerald-800'}">
+                ${item.stock} ${item.und}
+              </span>
+            </td>
+            <td class="py-3 px-4 text-right text-gray-700">${formatMoney(pCompra)}</td>
+            <td class="py-3 px-4 text-right font-bold text-gray-900">${formatMoney(pVenta)}</td>
+            <td class="py-3 px-4 text-right text-emerald-700 font-medium">+${formatMoney(ganancia)}</td>
+            <td class="py-3 px-4 text-gray-500 text-[11px]">
+              <div class="text-gray-700">${item.detalles || ""}</div>
+              <div class="${isLow ? 'text-red-600 font-medium' : 'text-gray-400'}">${item.observacion || ""}</div>
+            </td>
+            <td class="py-3 px-4 text-right whitespace-nowrap">
+              <button onclick="openProductModal(${item.id})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-gray-200 hover:border-gray-400 text-gray-700 hover:text-black text-[11px] transition">
+                <i data-lucide="sliders-horizontal" class="w-3 h-3"></i>
+                Editar
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      const histContainer = document.getElementById("compras-history-container");
+      if (state.compras.length === 0) {
+        histContainer.innerHTML = `<p class="text-xs text-gray-500">Todavía no registraste compras adicionales o gastos varios este mes.</p>`;
+      } else {
+        histContainer.innerHTML = `
+          <div class="overflow-x-auto border-t border-gray-100">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-gray-200 text-gray-600">
+                  <th class="py-2.5 px-3">Concepto</th>
+                  <th class="py-2.5 px-3">Fecha</th>
+                  <th class="py-2.5 px-3 text-center">Cant.</th>
+                  <th class="py-2.5 px-3 text-right">Costo Unit.</th>
+                  <th class="py-2.5 px-3 text-right">Monto Total</th>
+                  <th class="py-2.5 px-3">Descripción</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${state.compras.map(c => `
+                  <tr>
+                    <td class="py-2.5 px-3 font-medium text-gray-900">${c.concepto}</td>
+                    <td class="py-2.5 px-3 text-gray-600">${formatDatePE(c.fecha)}</td>
+                    <td class="py-2.5 px-3 text-center text-gray-600">${c.cantidad}</td>
+                    <td class="py-2.5 px-3 text-right text-gray-600">${formatMoney(c.costoUnit)}</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-gray-900">${formatMoney(c.total)}</td>
+                    <td class="py-2.5 px-3 text-gray-500">${c.descripcion || '-'}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+      lucide.createIcons();
+    }
+
+    function onCompraProductSelect(val) {
+      if (val && val.startsWith("PROD_")) {
+        const id = Number(val.replace("PROD_", ""));
+        const prod = state.almacen.find(a => a.id === id);
+        if (prod) document.getElementById("compra-costo-unit").value = prod.pCompra || "";
+      }
+      updateCompraTotalPreview();
+    }
+
+    function updateCompraTotalPreview() {
+      const cant = Number(document.getElementById("compra-cantidad").value) || 1;
+      const costo = Number(document.getElementById("compra-costo-unit").value) || 0;
+      document.getElementById("compra-total-preview").innerHTML = `Total egreso: <strong>${formatMoney(cant * costo)}</strong>`;
+    }
+
+    function handlePurchaseSubmit(e) {
+      e.preventDefault();
+      const selVal = document.getElementById("compra-producto-id").value;
+      if (!selVal) return;
+
+      const fecha = document.getElementById("compra-fecha").value;
+      const cantidad = Number(document.getElementById("compra-cantidad").value) || 1;
+      const costoUnit = Number(document.getElementById("compra-costo-unit").value) || 0;
+      const total = cantidad * costoUnit;
+      const descripcion = document.getElementById("compra-descripcion").value.trim();
+
+      let concepto = "";
+      if (selVal.startsWith("PROD_")) {
+        const prodId = Number(selVal.replace("PROD_", ""));
+        const prod = state.almacen.find(a => a.id === prodId);
+        if (prod) {
+          prod.stock = (Number(prod.stock) || 0) + cantidad;
+          if (costoUnit > 0 && (hasPermission("modificar_precios") || state.tempPriceOverride)) {
+            prod.pCompra = costoUnit;
+          }
+          concepto = `COMPRA STOCK: ${prod.descripcion}`;
+        }
+      } else {
+        concepto = selVal.replace("GASTO_", "");
+      }
+
+      const newId = state.compras.reduce((max, c) => Math.max(max, c.id), 0) + 1;
+      state.compras.unshift({ id: newId, concepto, fecha, cantidad, costoUnit, total, descripcion });
+      document.getElementById("compra-descripcion").value = "";
+      saveState();
+      renderAll();
+      showToast(`Compra registrada: ${concepto}`, "success");
+    }
+
+    function openProductModal(editId = null) {
+      const modal = document.getElementById("modal-producto");
+      const canEditPrices = hasPermission("modificar_precios") || state.tempPriceOverride;
+
+      const pCompraInput = document.getElementById("prod-pcompra");
+      const pVentaInput = document.getElementById("prod-pventa");
+      const lockWarn = document.getElementById("prod-price-lock-warning");
+
+      if (canEditPrices) {
+        pCompraInput.removeAttribute("readonly");
+        pVentaInput.removeAttribute("readonly");
+        lockWarn.classList.add("hidden");
+      } else {
+        pCompraInput.setAttribute("readonly", "true");
+        pVentaInput.setAttribute("readonly", "true");
+        lockWarn.classList.remove("hidden");
+      }
+
+      if (editId) {
+        const p = state.almacen.find(a => a.id === editId);
+        if (!p) return;
+        document.getElementById("modal-producto-title").textContent = `Editar Repuesto #${p.id}`;
+        document.getElementById("prod-edit-id").value = p.id;
+        document.getElementById("prod-descripcion").value = p.descripcion;
+        document.getElementById("prod-compatibilidad").value = p.compatibilidad;
+        document.getElementById("prod-und").value = p.und;
+        document.getElementById("prod-stock").value = p.stock;
+        pCompraInput.value = p.pCompra;
+        pVentaInput.value = p.pVenta;
+        document.getElementById("prod-detalles").value = p.detalles || "";
+        document.getElementById("prod-observacion").value = p.observacion || "";
+      } else {
+        document.getElementById("modal-producto-title").textContent = "Nuevo Repuesto en Almacén";
+        document.getElementById("prod-edit-id").value = "";
+        document.getElementById("prod-descripcion").value = "";
+        document.getElementById("prod-compatibilidad").value = "VOLKSWAGEN";
+        document.getElementById("prod-und").value = "Unidad";
+        document.getElementById("prod-stock").value = 1;
+        pCompraInput.value = 0;
+        pVentaInput.value = 0;
+        document.getElementById("prod-detalles").value = "";
+        document.getElementById("prod-observacion").value = "";
+      }
+
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function promptAdminOverrideForPrices() {
+      requestAdminAuthorization("Autorizar modificación de precios de compra y venta en Almacén.", () => {
+        state.tempPriceOverride = true;
+        document.getElementById("prod-pcompra").removeAttribute("readonly");
+        document.getElementById("prod-pventa").removeAttribute("readonly");
+        document.getElementById("prod-price-lock-warning").classList.add("hidden");
+        renderAlmacenView();
+        showToast("Precios desbloqueados con éxito", "success");
+      });
+    }
+
+    function closeProductModal() {
+      const modal = document.getElementById("modal-producto");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function handleProductSubmit(e) {
+      e.preventDefault();
+      const editId = document.getElementById("prod-edit-id").value;
+      const descripcion = document.getElementById("prod-descripcion").value.trim().toUpperCase();
+      const compatibilidad = document.getElementById("prod-compatibilidad").value.trim().toUpperCase();
+      const und = document.getElementById("prod-und").value.trim();
+      const stock = Number(document.getElementById("prod-stock").value) || 0;
+      const pCompra = Number(document.getElementById("prod-pcompra").value) || 0;
+      const pVenta = Number(document.getElementById("prod-pventa").value) || 0;
+      const detalles = document.getElementById("prod-detalles").value.trim();
+      const observacion = document.getElementById("prod-observacion").value.trim();
+
+      if (editId) {
+        const idx = state.almacen.findIndex(a => a.id === Number(editId));
+        if (idx !== -1) {
+          state.almacen[idx] = { ...state.almacen[idx], descripcion, compatibilidad, und, stock, pCompra, pVenta, detalles, observacion };
+          showToast(`Repuesto "${descripcion}" actualizado`, "success");
+        }
+      } else {
+        const newId = state.almacen.reduce((max, a) => Math.max(max, a.id), 0) + 1;
+        state.almacen.push({ id: newId, descripcion, compatibilidad, und, stock, pCompra, pVenta, detalles, observacion });
+        showToast(`Nuevo repuesto "${descripcion}" agregado al almacén`, "success");
+      }
+
+      saveState();
+      closeProductModal();
+      renderAll();
+    }
+
+    // ============================================================================
+    // 10. VISTA 6: CLIENTES (CON ALERTA DE DEUDA EN EL ENCABEZADO)
+    // ============================================================================
+    function renderClientesView() {
+      const debtMap = getClientDebtMap();
+      const clientsWithDebt = Object.values(debtMap).filter(d => d.saldo > 0 || d.pendingCount > 0);
+      const totalDebtAll = clientsWithDebt.reduce((s, d) => s + d.saldo, 0);
+
+      // Renderizar el Banner de Deudas en el Encabezado de Clientes
+      const banner = document.getElementById("clientes-header-debt-banner");
+      if (clientsWithDebt.length === 0) {
+        banner.innerHTML = `
+          <div class="flex items-center gap-3 text-emerald-800 text-xs">
+            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
+            <div>
+              <strong class="block text-sm">Todos los clientes frecuentes están al día</strong>
+              <span>No existen deudas ni saldos pendientes por cancelar en este momento.</span>
+            </div>
+          </div>
+        `;
+      } else {
+        banner.innerHTML = `
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-amber-200/80">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-lg bg-amber-600 text-white flex items-center justify-center flex-shrink-0">
+                <i data-lucide="bell-ring" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h2 class="text-sm font-bold text-gray-900">Alerta de Clientes con Deuda Pendiente ("Por Cancelar")</h2>
+                <p class="text-xs text-amber-900">Actualmente hay <strong>${clientsWithDebt.length} cliente(s)</strong> que mantienen saldo pendiente de pago.</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-[11px] text-amber-800 block">Deuda Total Acumulada:</span>
+              <span class="text-lg font-bold text-red-700">${formatMoney(totalDebtAll)}</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mt-3.5">
+            ${clientsWithDebt.map(d => {
+              const cliObj = state.clientes.find(c => c.codigo.toUpperCase() === d.codigo);
+              const nombre = cliObj ? cliObj.nombre : "Cliente Registrado";
+              const origen = cliObj ? cliObj.origen : "OTROS";
+              return `
+                <div onclick="jumpToClientSales('${d.codigo}')" class="bg-white border border-amber-200 hover:border-amber-400 rounded-lg p-3 flex items-center justify-between cursor-pointer transition shadow-2xs">
+                  <div>
+                    <div class="font-bold text-gray-900 text-xs">${d.codigo} <span class="text-[10px] font-normal text-gray-500">(${origen})</span></div>
+                    <div class="text-[11px] text-gray-600 truncate max-w-[160px]">${nombre}</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-xs font-bold text-red-600">${d.saldo > 0 ? formatMoney(d.saldo) : 'Fijar precio'}</div>
+                    <div class="text-[10px] text-amber-700">${d.pendingCount} reg. pendiente(s)</div>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `;
+      }
+
+      document.getElementById("clientes-count-label").textContent = `${state.clientes.length} clientes frecuentes`;
+
+      const tbody = document.getElementById("clientes-directory-tbody");
+      tbody.innerHTML = state.clientes.map(c => {
+        const dInfo = debtMap[c.codigo.toUpperCase()] || { totalComprado: 0, saldo: 0, pendingCount: 0 };
+        const hasDebt = dInfo.saldo > 0 || dInfo.pendingCount > 0;
+
+        return `
+          <tr class="hover:bg-gray-50 transition">
+            <td class="py-3 px-4 font-bold text-gray-900">${c.codigo}</td>
+            <td class="py-3 px-4 text-gray-800">${c.nombre}</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px] font-semibold">${c.origen}</span>
+            </td>
+            <td class="py-3 px-4 text-gray-500">${c.telefono || "-"}</td>
+            <td class="py-3 px-4 text-right font-medium text-gray-800">${formatMoney(dInfo.totalComprado)}</td>
+            <td class="py-3 px-4 text-right">
+              ${hasDebt
+                ? `<span class="px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 font-bold text-[11px]">${dInfo.saldo > 0 ? formatMoney(dInfo.saldo) : 'Precio pendiente'}</span>`
+                : `<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px]">Sin deuda</span>`
+              }
+            </td>
+            <td class="py-3 px-4 text-right whitespace-nowrap">
+              <button onclick="jumpToClientSales('${c.codigo}')" class="text-xs text-blue-700 hover:underline mr-2">Ver historial</button>
+              <button onclick="deleteClient(${c.id})" class="text-xs text-gray-400 hover:text-red-600">Eliminar</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+      lucide.createIcons();
+    }
+
+    function handleAddClient(e) {
+      e.preventDefault();
+      const codigo = document.getElementById("new-client-codigo").value.trim().toUpperCase();
+      const origen = document.getElementById("new-client-origen").value.trim().toUpperCase();
+      const nombre = document.getElementById("new-client-nombre").value.trim();
+      const telefono = document.getElementById("new-client-telefono").value.trim();
+      if (!codigo) return;
+
+      if (state.clientes.some(c => c.codigo.toUpperCase() === codigo)) {
+        showToast(`El código de cliente ${codigo} ya existe`, "warning");
+        return;
+      }
+
+      const newId = state.clientes.reduce((max, c) => Math.max(max, c.id), 0) + 1;
+      state.clientes.push({ id: newId, codigo, origen, nombre, telefono });
+      document.getElementById("new-client-codigo").value = "";
+      document.getElementById("new-client-origen").value = "";
+      document.getElementById("new-client-nombre").value = "";
+      document.getElementById("new-client-telefono").value = "";
+      saveState();
+      renderAll();
+      showToast(`Cliente frecuente ${codigo} agregado exitosamente`, "success");
+    }
+
+    function deleteClient(id) {
+      state.clientes = state.clientes.filter(c => c.id !== id);
+      saveState();
+      renderAll();
+      showToast("Cliente eliminado del directorio", "info");
+    }
+
+    // ============================================================================
+    // 11. VISTA 7: SUPABASE SQL (BLOQUEO CON CLAVE ADMIN / 1903 O WILLOSIRIS)
+    // ============================================================================
+    function renderSupabaseView() {
+      const gate = document.getElementById("supabase-lock-gate");
+      const content = document.getElementById("supabase-unlocked-content");
+
+      if (state.supabaseGateUnlocked || hasPermission("acceso_sql")) {
+        gate.classList.add("hidden");
+        content.classList.remove("hidden");
+        generateSQLScript();
+      } else {
+        gate.classList.remove("hidden");
+        content.classList.add("hidden");
+      }
+      updateUserUI();
+    }
+
+    function handleUnlockSupabaseGate(e) {
+      e.preventDefault();
+      const u = document.getElementById("sql-gate-user").value.trim();
+      const p = document.getElementById("sql-gate-pass").value;
+
+      // Verifica contra el usuario Admin (1903) o WILLOSIRIS (74969686) o cualquier usuario con permiso acceso_sql
+      const validAdmin = state.usuarios.find(
+        usr => usr.username.toLowerCase() === u.toLowerCase() && usr.password === p &&
+        (usr.permissions.acceso_sql || usr.username.toLowerCase() === "admin" || usr.username.toUpperCase() === "WILLOSIRIS")
+      );
+
+      if (!validAdmin) {
+        showToast("Acceso denegado. Usa el usuario Admin (1903) o WILLOSIRIS.", "warning");
+        return;
+      }
+
+      state.supabaseGateUnlocked = true;
+      document.getElementById("sql-gate-pass").value = "";
+      renderSupabaseView();
+      showToast("Panel Supabase SQL desbloqueado correctamente", "success");
+    }
+
+    function generateSQLScript() {
+      const sql = `-- ====================================================================
+-- SCRIPT SQL PARA SUPABASE: ANAROSA REPUESTOS Y ACCESORIOS
+-- Incluye tablas: almacen, clientes, ventas y usuarios
+-- ====================================================================
+
+CREATE TABLE IF NOT EXISTS public.almacen (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  descripcion TEXT NOT NULL,
+  compatibilidad TEXT DEFAULT 'GENERAL',
+  stock INTEGER DEFAULT 0,
+  und TEXT DEFAULT 'Unidad',
+  p_compra NUMERIC(10,2) DEFAULT 0,
+  p_venta NUMERIC(10,2) DEFAULT 0,
+  detalles TEXT DEFAULT '',
+  observacion TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.clientes (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  codigo TEXT NOT NULL UNIQUE,
+  origen TEXT NOT NULL,
+  nombre TEXT DEFAULT '',
+  telefono TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS public.ventas (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+  cliente TEXT NOT NULL,
+  cliente_nombre TEXT DEFAULT '',
+  descripcion TEXT NOT NULL,
+  cantidad INTEGER DEFAULT 1,
+  precio_unit NUMERIC(10,2) DEFAULT 0,
+  total NUMERIC(10,2) DEFAULT 0,
+  pagado NUMERIC(10,2) DEFAULT 0,
+  estado TEXT DEFAULT 'Por Cancelar',
+  observacion TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO public.almacen (descripcion, compatibilidad, stock, und, p_compra, p_venta, detalles, observacion) VALUES
+${state.almacen.map(a => `  ('${a.descripcion.replace(/'/g, "''")}', '${a.compatibilidad}', ${a.stock}, '${a.und}', ${a.pCompra}, ${a.pVenta}, '${(a.detalles || "").replace(/'/g, "''")}', '${(a.observacion || "").replace(/'/g, "''")}')`).join(",\n")};
+`;
+      const area = document.getElementById("supabase-sql-code");
+      if (area) area.value = sql;
+    }
+
+    function copySupabaseSQL() {
+      const textarea = document.getElementById("supabase-sql-code");
+      textarea.select();
+      document.execCommand("copy");
+      const fb = document.getElementById("copy-sql-feedback");
+      fb.classList.remove("hidden");
+      setTimeout(() => fb.classList.add("hidden"), 2500);
+      showToast("Script SQL copiado al portapapeles", "success");
+    }
+
+    async function saveSupabaseCredentials(e) {
+      e.preventDefault();
+      const url = document.getElementById("sb-url-input").value.trim();
+      const key = document.getElementById("sb-key-input").value.trim();
+      if (!url || !key) {
+        showToast("Completa el Project URL y el Anon Key", "warning");
+        return;
+      }
+      localStorage.setItem("anarosa_sb_url", url);
+      localStorage.setItem("anarosa_sb_key", key);
+      showToast("Credenciales guardadas", "success");
+    }
+
+    async function pushLocalToSupabase() {
+      showToast("Sincronizando datos con Supabase...", "info");
+    }
+
+    // ============================================================================
+    // 12. VISTA 8: USUARIOS (EXCLUSIVO PARA SUPER ADMINISTRADOR WILLOSIRIS)
+    // ============================================================================
+    function renderUsuariosView() {
+      if (!hasPermission("gestionar_usuarios")) return;
+
+      const tbody = document.getElementById("usuarios-table-body");
+      tbody.innerHTML = state.usuarios.map(u => `
+        <tr class="hover:bg-gray-50 transition">
+          <td class="py-3 px-4 font-bold text-gray-900 font-sans">${u.username}</td>
+          <td class="py-3 px-4 font-mono text-xs text-blue-800 bg-blue-50/40">${u.password}</td>
+          <td class="py-3 px-4 text-gray-600">${u.role}</td>
+          <td class="py-3 px-3 text-center">
+            <input type="checkbox" ${u.permissions.eliminar_ventas ? "checked" : ""} onchange="toggleUserPerm(${u.id}, 'eliminar_ventas', this.checked)" class="rounded border-gray-300 text-[#101929] cursor-pointer" />
+          </td>
+          <td class="py-3 px-3 text-center">
+            <input type="checkbox" ${u.permissions.modificar_precios ? "checked" : ""} onchange="toggleUserPerm(${u.id}, 'modificar_precios', this.checked)" class="rounded border-gray-300 text-[#101929] cursor-pointer" />
+          </td>
+          <td class="py-3 px-3 text-center">
+            <input type="checkbox" ${u.permissions.acceso_sql ? "checked" : ""} onchange="toggleUserPerm(${u.id}, 'acceso_sql', this.checked)" class="rounded border-gray-300 text-[#101929] cursor-pointer" />
+          </td>
+          <td class="py-3 px-3 text-center">
+            <input type="checkbox" ${u.permissions.gestionar_usuarios ? "checked" : ""} onchange="toggleUserPerm(${u.id}, 'gestionar_usuarios', this.checked)" class="rounded border-gray-300 text-[#101929] cursor-pointer" />
+          </td>
+          <td class="py-3 px-4 text-right whitespace-nowrap">
+            <button onclick="loadUserIntoForm(${u.id})" class="text-xs text-blue-700 hover:underline mr-2 font-medium">Cambiar Clave / Editar</button>
+            ${u.username.toUpperCase() !== "WILLOSIRIS" ? `<button onclick="deleteUser(${u.id})" class="text-xs text-red-600 hover:underline">Eliminar</button>` : ""}
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function toggleUserPerm(userId, permKey, val) {
+      const usr = state.usuarios.find(u => u.id === userId);
+      if (!usr) return;
+      usr.permissions[permKey] = Boolean(val);
+      saveState();
+      showToast(`Permiso "${permKey}" actualizado para ${usr.username}`, "success");
+    }
+
+    function loadUserIntoForm(userId) {
+      const usr = state.usuarios.find(u => u.id === userId);
+      if (!usr) return;
+      document.getElementById("user-form-title").textContent = `Editando Usuario: ${usr.username}`;
+      document.getElementById("edit-user-id").value = usr.id;
+      document.getElementById("user-form-username").value = usr.username;
+      document.getElementById("user-form-password").value = usr.password;
+      document.getElementById("user-form-role").value = usr.role;
+      document.getElementById("perm-eliminar-ventas").checked = Boolean(usr.permissions.eliminar_ventas);
+      document.getElementById("perm-modificar-precios").checked = Boolean(usr.permissions.modificar_precios);
+      document.getElementById("perm-acceso-sql").checked = Boolean(usr.permissions.acceso_sql);
+      document.getElementById("perm-gestionar-usuarios").checked = Boolean(usr.permissions.gestionar_usuarios);
+    }
+
+    function resetUserForm() {
+      document.getElementById("user-form-title").textContent = "Agregar Nuevo Usuario";
+      document.getElementById("edit-user-id").value = "";
+      document.getElementById("user-form-username").value = "";
+      document.getElementById("user-form-password").value = "";
+      document.getElementById("user-form-role").value = "";
+      document.getElementById("perm-eliminar-ventas").checked = false;
+      document.getElementById("perm-modificar-precios").checked = false;
+      document.getElementById("perm-acceso-sql").checked = false;
+      document.getElementById("perm-gestionar-usuarios").checked = false;
+    }
+
+    function handleSaveUser(e) {
+      e.preventDefault();
+      const editId = document.getElementById("edit-user-id").value;
+      const username = document.getElementById("user-form-username").value.trim();
+      const password = document.getElementById("user-form-password").value.trim();
+      const role = document.getElementById("user-form-role").value.trim();
+      const permissions = {
+        eliminar_ventas: document.getElementById("perm-eliminar-ventas").checked,
+        modificar_precios: document.getElementById("perm-modificar-precios").checked,
+        acceso_sql: document.getElementById("perm-acceso-sql").checked,
+        gestionar_usuarios: document.getElementById("perm-gestionar-usuarios").checked
+      };
+
+      if (editId) {
+        const idx = state.usuarios.findIndex(u => u.id === Number(editId));
+        if (idx !== -1) {
+          state.usuarios[idx] = { ...state.usuarios[idx], username, password, role, permissions };
+          showToast(`Usuario ${username} y su contraseña actualizados`, "success");
+        }
+      } else {
+        const newId = state.usuarios.reduce((max, u) => Math.max(max, u.id), 0) + 1;
+        state.usuarios.push({ id: newId, username, password, role, permissions });
+        showToast(`Nuevo usuario ${username} creado`, "success");
+      }
+
+      resetUserForm();
+      saveState();
+      renderUsuariosView();
+    }
+
+    function deleteUser(userId) {
+      const usr = state.usuarios.find(u => u.id === userId);
+      if (!usr || usr.username.toUpperCase() === "WILLOSIRIS") return;
+      state.usuarios = state.usuarios.filter(u => u.id !== userId);
+      saveState();
+      renderUsuariosView();
+      showToast(`Usuario ${usr.username} eliminado`, "info");
+    }
+
+    // ============================================================================
+    // 13. EXPORTAR CSV Y RENDERIZADO GENERAL
+    // ============================================================================
+    function exportAllToCSV() {
+      let csv = "Nro,Fecha,Cliente,Nombre,Repuesto,Cantidad,Precio Unitario,Total,Pagado,Saldo,Estado,Observacion\n";
+      state.ventas.forEach(v => {
+        const saldo = Math.max(0, (Number(v.total) || 0) - (Number(v.pagado) || 0));
+        csv += `${v.id},${v.fecha},"${v.cliente}","${v.clienteNombre || ''}","${v.descripcion}",${v.cantidad},${v.precioUnit},${v.total},${v.pagado},${saldo},"${v.estado}","${(v.observacion || "").replace(/"/g, '""')}"\n`;
+      });
+
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Reporte_ANAROSA_Repuestos_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast("Archivo CSV descargado (compatible con Excel)", "success");
+    }
+
+    function renderAll() {
+      updateSidebarCounters();
+      populateVentasFilterDropdowns();
+      renderInicio();
+      renderBuscarCatalog();
+      renderPosView();
+      renderVentasTable();
+      renderAlmacenView();
+      renderClientesView();
+      renderSupabaseView();
+      renderUsuariosView();
+      lucide.createIcons();
+    }
+
+    window.onload = function () {
+      loadState();
+      initLoginScreen();
+      renderAll();
+    };
+  </script>
+</body>
+</html>
