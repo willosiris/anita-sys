@@ -338,15 +338,15 @@
     <div class="mt-5 pt-3 border-t border-slate-800/80 text-xs text-slate-400 space-y-1.5 px-1">
       <div class="flex items-center justify-between">
         <span>Items en Almacén:</span>
-        <span id="sidebar-total-items" class="text-white font-semibold">11</span>
+        <span id="sidebar-total-items" class="text-white font-semibold">0</span>
       </div>
       <div class="flex items-center justify-between">
         <span>Unidades Totales:</span>
-        <span id="sidebar-total-units" class="text-emerald-400 font-semibold">100 und.</span>
+        <span id="sidebar-total-units" class="text-emerald-400 font-semibold">0 und.</span>
       </div>
-      <button onclick="resetToExcelData()" class="w-full mt-2 py-1.5 px-2.5 rounded border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white text-[11px] flex items-center justify-center gap-1.5 transition">
-        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-        Restaurar Libro Excel
+      <button onclick="syncFromSupabase(true)" class="w-full mt-2 py-1.5 px-2.5 rounded border border-slate-700 hover:border-emerald-500 text-slate-300 hover:text-white text-[11px] flex items-center justify-center gap-1.5 transition">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+        Sincronizar con Supabase
       </button>
     </div>
   </aside>
@@ -356,11 +356,14 @@
     <!-- BARRA SUPERIOR -->
     <header class="h-12 bg-white border-b border-gray-200 px-4 md:px-6 flex items-center justify-between text-xs text-gray-600 sticky top-0 z-20 no-print">
       <div class="flex items-center gap-2.5">
-        <span id="sync-status-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-gray-100 text-gray-700 border border-gray-200">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-          <span class="hidden sm:inline">Libro ANAROSA.xlsx sincronizado</span>
-          <span class="sm:hidden">Sincronizado</span>
+        <span id="sync-status-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium">
+          <span id="sync-status-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          <span id="sync-status-text">Supabase Conectado</span>
         </span>
+        <button onclick="syncFromSupabase(true)" class="inline-flex items-center gap-1 text-[11px] text-gray-600 hover:text-gray-900 border border-gray-200 rounded-full px-2.5 py-0.5 bg-white hover:bg-gray-50 transition" title="Recargar datos desde Supabase">
+          <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+          <span class="hidden md:inline">Sincronizar</span>
+        </button>
         <button onclick="toggleFontStyle()" class="hidden lg:inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-900 border border-gray-200 rounded px-2 py-0.5">
           <i data-lucide="type" class="w-3 h-3"></i>
           <span id="font-toggle-label">Fuente: Editorial</span>
@@ -1061,22 +1064,22 @@
 
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div class="lg:col-span-5 bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
-              <h2 class="text-sm font-bold text-gray-900">1. Credenciales de tu proyecto Supabase</h2>
+              <h2 class="text-sm font-bold text-gray-900">1. Credenciales de tu proyecto Supabase (Preconfiguradas)</h2>
               <form onsubmit="saveSupabaseCredentials(event)" class="space-y-3.5">
                 <div>
                   <label class="block text-xs text-gray-700 mb-1">Supabase Project URL</label>
-                  <input type="url" id="sb-url-input" placeholder="https://tu-proyecto.supabase.co" class="input-clean w-full text-xs font-sans" />
+                  <input type="url" id="sb-url-input" value="https://qkhliyvtrawtveexuxls.supabase.co" placeholder="https://tu-proyecto.supabase.co" class="input-clean w-full text-xs font-sans" />
                 </div>
                 <div>
-                  <label class="block text-xs text-gray-700 mb-1">Supabase Anon Key (Public)</label>
-                  <input type="password" id="sb-key-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="input-clean w-full text-xs font-sans" />
+                  <label class="block text-xs text-gray-700 mb-1">Supabase Publishable / Anon Key</label>
+                  <input type="text" id="sb-key-input" value="sb_publishable_Ds4IYaHux6yT2koNicw4Ug_OoZYyCQ_" placeholder="sb_publishable_..." class="input-clean w-full text-xs font-sans" />
                 </div>
                 <div class="flex flex-wrap items-center gap-2 pt-2">
                   <button type="submit" class="bg-[#14171f] hover:bg-black text-white text-xs font-medium px-4 py-2 rounded-lg transition">
-                    Conectar y Sincronizar
+                    Probar y Reconectar
                   </button>
-                  <button type="button" onclick="pushLocalToSupabase()" class="border border-gray-300 hover:bg-gray-50 text-gray-800 text-xs px-3 py-2 rounded-lg transition">
-                    Subir datos a Supabase
+                  <button type="button" onclick="syncFromSupabase(true)" class="border border-gray-300 hover:bg-gray-50 text-gray-800 text-xs px-3 py-2 rounded-lg transition">
+                    Descargar Datos de Nube
                   </button>
                 </div>
               </form>
@@ -1362,66 +1365,18 @@
 
   <script>
     // ============================================================================
-    // 1. DATOS INICIALES DEL LIBRO EXCEL (ALMACÉN, CLIENTES, HISTORIAL Y USUARIOS)
+    // 1. CONEXIÓN PRECONFIGURADA DE FÁBRICA CON SUPABASE (EN BLANCO Y EN VIVO)
     // ============================================================================
-    const INITIAL_ALMACEN = [
-      { id: 1, descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", compatibilidad: "VOLKSWAGEN", stock: 13, und: "Unidad", pCompra: 60, pVenta: 80, detalles: "Filtro separador de combustible diésel de alta eficiencia", observacion: "Alta rotación" },
-      { id: 2, descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", compatibilidad: "VOLKSWAGEN", stock: 33, und: "Unidad", pCompra: 20, pVenta: 35, detalles: "Filtro de aceite sintético/mineral roscado", observacion: "Stock óptimo" },
-      { id: 3, descripcion: "FILTRO DE AIRE / MON 4312", compatibilidad: "MULTIMARCA / MON 4312", stock: 10, und: "Unidad", pCompra: 55, pVenta: 75, detalles: "Elemento filtrante de aire de motor primario código MON 4312", observacion: "Compatible con flota pesada" },
-      { id: 4, descripcion: "FILTRO DE CABINA P/VOLKSWAGEN", compatibilidad: "VOLKSWAGEN", stock: 3, und: "Unidad", pCompra: 48, pVenta: 70, detalles: "Filtro antipolen de habitáculo y aire acondicionado", observacion: "Stock bajo - reabastecer pronto" },
-      { id: 5, descripcion: "TRAMPA DE AGUA", compatibilidad: "MULTIMARCA / UNIVERSAL", stock: 6, und: "Unidad", pCompra: 95, pVenta: 120, detalles: "Separador de agua y sedimentos para sistema de inyección diésel", observacion: "Revisar empaques incluidos" },
-      { id: 6, descripcion: "PASTILLAS DELANTERAS P/VOLKSWAGEN", compatibilidad: "VOLKSWAGEN", stock: 9, und: "Unidad", pCompra: 85, pVenta: 120, detalles: "Juego de pastillas de freno delanteras semimetálicas", observacion: "Precio actualizado según historial" },
-      { id: 7, descripcion: "PASTILLAS TRACERAS P/VOLKSWAGEN", compatibilidad: "VOLKSWAGEN", stock: 9, und: "Unidad", pCompra: 90, pVenta: 130, detalles: "Juego de pastillas de freno traseras de alta duración", observacion: "Precio actualizado según historial" },
-      { id: 8, descripcion: "PASTILLAS DELANTERAS P/RENAULT", compatibilidad: "RENAULT", stock: 6, und: "Unidad", pCompra: 80, pVenta: 115, detalles: "Juego de pastillas de freno delanteras para línea Renault", observacion: "Verificar lote en estante B" },
-      { id: 9, descripcion: "PASTILLAS TRACERAS P/RENAULT", compatibilidad: "RENAULT", stock: 3, und: "Unidad", pCompra: 85, pVenta: 125, detalles: "Juego de pastillas de freno traseras para línea Renault", observacion: "Stock bajo" },
-      { id: 10, descripcion: "PASTILLAS DELANTERAS P/RENAULT MASTER", compatibilidad: "RENAULT MASTER", stock: 6, und: "Unidad", pCompra: 95, pVenta: 140, detalles: "Pastillas de freno trabajo pesado para furgón Renault Master", observacion: "Pendiente confirmar cobro en unidad #03" },
-      { id: 11, descripcion: "PASTILLAS TRACERAS P/RENAULT MASTER", compatibilidad: "RENAULT MASTER", stock: 2, und: "Unidad", pCompra: 100, pVenta: 145, detalles: "Pastillas traseras trabajo pesado para Renault Master", observacion: "Stock crítico" }
-    ];
+    const DEFAULT_SUPABASE_URL = "https://qkhliyvtrawtveexuxls.supabase.co";
+    const DEFAULT_SUPABASE_KEY = "sb_publishable_Ds4IYaHux6yT2koNicw4Ug_OoZYyCQ_";
 
-    const INITIAL_CLIENTES = [
-      { id: 1, codigo: "TALLER", origen: "TALLER", nombre: "Taller Mecánico Central", telefono: "984-110-220" },
-      { id: 2, codigo: "#27", origen: "JULIACA", nombre: "Unidad #27 (Flota Juliaca)", telefono: "951-270-027" },
-      { id: 3, codigo: "#48", origen: "JULIACA", nombre: "Unidad #48 (Flota Juliaca)", telefono: "951-480-048" },
-      { id: 4, codigo: "#56", origen: "JULIACA", nombre: "Unidad #56 (Flota Juliaca)", telefono: "951-560-056" },
-      { id: 5, codigo: "#03", origen: "AYAVIRI", nombre: "Unidad #03 (Flota Ayaviri)", telefono: "951-030-003" },
-      { id: 6, codigo: "GADDIEL", origen: "JULIACA", nombre: "Gaddiel Transportes", telefono: "951-889-123" }
-    ];
-
-    const INITIAL_VENTAS = [
-      { id: 1, fecha: "2026-08-01", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
-      { id: 2, fecha: "2026-08-09", cliente: "GADDIEL", clienteNombre: "Gaddiel Transportes", origen: "JULIACA", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
-      { id: 3, fecha: "2026-08-09", cliente: "GADDIEL", clienteNombre: "Gaddiel Transportes", origen: "JULIACA", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
-      { id: 4, fecha: "2026-08-10", cliente: "#56", clienteNombre: "Unidad #56 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
-      { id: 5, fecha: "2026-08-12", cliente: "#27", clienteNombre: "Unidad #27 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE CABINA P/VOLKSWAGEN", cantidad: 1, precioUnit: 70, total: 70, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE CABINA P/VOLKSWAGEN", cantidad: 1, precioUnit: 70, subtotal: 70 }] },
-      { id: 6, fecha: "2026-08-12", cliente: "#27", clienteNombre: "Unidad #27 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
-      { id: 7, fecha: "2026-08-28", cliente: "OTRO", clienteNombre: "Cliente Particular Mostrador", origen: "OTROS", descripcion: "PASTILLAS DELANTERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 120, total: 120, pagado: 120, estado: "Cancelado", observacion: "", items: [{ descripcion: "PASTILLAS DELANTERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 120, subtotal: 120 }] },
-      { id: 8, fecha: "2026-08-29", cliente: "#48", clienteNombre: "Unidad #48 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
-      { id: 9, fecha: "2026-08-29", cliente: "#48", clienteNombre: "Unidad #48 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
-      { id: 10, fecha: "2026-09-07", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 75, total: 75, pagado: 75, estado: "Cancelado", observacion: "COBRO MENOS POR FALTA DE RELEVO DE PRECIOS", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 75, subtotal: 75 }] },
-      { id: 11, fecha: "2026-09-07", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 30, total: 30, pagado: 30, estado: "Cancelado", observacion: "COBRO MENOS POR FALTA DE RELEVO DE PRECIOS", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 30, subtotal: 30 }] },
-      { id: 12, fecha: "2026-08-15", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "PASTILLAS TRACERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 130, total: 130, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "PASTILLAS TRACERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 130, subtotal: 130 }] },
-      { id: 13, fecha: "2026-09-21", cliente: "#56", clienteNombre: "Unidad #56 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
-      { id: 14, fecha: "2026-09-21", cliente: "#56", clienteNombre: "Unidad #56 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
-      { id: 15, fecha: "2026-09-21", cliente: "#56", clienteNombre: "Unidad #56 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE AIRE / MON 4312", cantidad: 1, precioUnit: 75, total: 75, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE AIRE / MON 4312", cantidad: 1, precioUnit: 75, subtotal: 75 }] },
-      { id: 16, fecha: "2026-09-22", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "PASTILLAS TRACERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 130, total: 130, pagado: 130, estado: "Cancelado", observacion: "", items: [{ descripcion: "PASTILLAS TRACERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 130, subtotal: 130 }] },
-      { id: 17, fecha: "2026-09-22", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "PASTILLAS DELANTERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 120, total: 120, pagado: 120, estado: "Cancelado", observacion: "", items: [{ descripcion: "PASTILLAS DELANTERAS P/VOLKSWAGEN", cantidad: 1, precioUnit: 120, subtotal: 120 }] },
-      { id: 18, fecha: "2026-09-02", cliente: "#03", clienteNombre: "Unidad #03 (Flota Ayaviri)", origen: "AYAVIRI", descripcion: "PASTILLAS DELANTERAS P/RENAULT MASTER", cantidad: 1, precioUnit: 0, total: 0, pagado: 0, estado: "Por Cancelar", observacion: "Pendiente fijar precio", items: [{ descripcion: "PASTILLAS DELANTERAS P/RENAULT MASTER", cantidad: 1, precioUnit: 0, subtotal: 0 }] },
-      { id: 19, fecha: "2026-09-25", cliente: "#27", clienteNombre: "Unidad #27 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE AIRE / MON 4312", cantidad: 1, precioUnit: 75, total: 75, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE AIRE / MON 4312", cantidad: 1, precioUnit: 75, subtotal: 75 }] },
-      { id: 20, fecha: "2026-09-25", cliente: "#27", clienteNombre: "Unidad #27 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
-      { id: 21, fecha: "2026-09-25", cliente: "#27", clienteNombre: "Unidad #27 (Flota Juliaca)", origen: "JULIACA", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
-      { id: 22, fecha: "2026-10-14", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
-      { id: 23, fecha: "2026-10-14", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] },
-      { id: 24, fecha: "2026-10-17", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, total: 35, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE ACEITE P/VOLKSWAGEN", cantidad: 1, precioUnit: 35, subtotal: 35 }] },
-      { id: 25, fecha: "2026-10-17", cliente: "TALLER", clienteNombre: "Taller Mecánico Central", origen: "TALLER", descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, total: 80, pagado: 0, estado: "Por Cancelar", observacion: "", items: [{ descripcion: "FILTRO DE PETROLEO P/VOLKSWAGEN", cantidad: 1, precioUnit: 80, subtotal: 80 }] }
-    ];
-
-    // Usuarios por defecto solicitados
+    // Usuarios iniciales de respaldo (se sincronizan con la tabla `usuarios` de Supabase)
     const INITIAL_USUARIOS = [
       {
         id: 1,
         username: "ANAROSA",
         password: "190324",
-        role: "Operador General de Ventas",
+        role: "Operador General",
         permissions: {
           eliminar_ventas: false,
           modificar_precios: false,
@@ -1433,7 +1388,7 @@
         id: 2,
         username: "Admin",
         password: "1903",
-        role: "Administrador SQL y Precios",
+        role: "Administrador SQL",
         permissions: {
           eliminar_ventas: true,
           modificar_precios: true,
@@ -1445,7 +1400,7 @@
         id: 3,
         username: "WILLOSIRIS",
         password: "74969686",
-        role: "Super Administrador Total",
+        role: "Super Administrador",
         permissions: {
           eliminar_ventas: true,
           modificar_precios: true,
@@ -1456,67 +1411,194 @@
     ];
 
     // ============================================================================
-    // 2. ESTADO GLOBAL Y PERSISTENCIA
+    // 2. ESTADO GLOBAL (INICIA EN BLANCO, LISTO PARA LLENAR EN SUPABASE)
     // ============================================================================
-    const STORAGE_KEY = "anarosa_erp_state_v2";
+    const STORAGE_KEY = "anarosa_erp_clean_supabase_v3";
     let state = {
       almacen: [],
       ventas: [],
       compras: [],
       clientes: [],
-      usuarios: [],
+      usuarios: JSON.parse(JSON.stringify(INITIAL_USUARIOS)),
       currentUser: null,
       supabaseGateUnlocked: false,
       tempPriceOverride: false,
       currentTab: "inicio",
       dashboardPeriod: "ALL",
       fontEditorial: true,
-      // Estado del Carrito de Registrar Venta (POS)
       posCart: [],
-      posSelectedClient: null // Objeto cliente o { codigo: 'OTROS', isManual: true }
+      posSelectedClient: null
     };
+
+    let supabaseClient = null;
+    let isSupabaseOnline = false;
 
     // Variables de Seguridad: Login (3 intentos -> 1 min bloqueo) e Inactividad (10 min)
     let failedLoginAttempts = 0;
     let loginLockoutUntil = 0;
     let loginLockoutInterval = null;
 
-    const INACTIVITY_LIMIT_SECONDS = 600; // 10 minutos exactos (600 segundos)
+    const INACTIVITY_LIMIT_SECONDS = 600; // 10 minutos
     let inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
     let inactivityInterval = null;
     let isSessionLocked = false;
     let pendingAdminCallback = null;
 
-    let supabaseClient = null;
+    function updateSyncStatusBadge(online, textMsg) {
+      isSupabaseOnline = online;
+      const badge = document.getElementById("sync-status-badge");
+      const dot = document.getElementById("sync-status-dot");
+      const text = document.getElementById("sync-status-text");
+      if (!badge || !dot || !text) return;
 
-    function loadState() {
+      if (online) {
+        badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium";
+        dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-500";
+        text.textContent = textMsg || "Supabase Conectado";
+      } else {
+        badge.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] bg-amber-50 text-amber-800 border border-amber-200 font-medium";
+        dot.className = "w-1.5 h-1.5 rounded-full bg-amber-500";
+        text.textContent = textMsg || "Modo Local (Offline)";
+      }
+    }
+
+    function initSupabaseClient() {
+      const savedUrl = localStorage.getItem("anarosa_sb_url") || DEFAULT_SUPABASE_URL;
+      const savedKey = localStorage.getItem("anarosa_sb_key") || DEFAULT_SUPABASE_KEY;
+
+      const urlInp = document.getElementById("sb-url-input");
+      const keyInp = document.getElementById("sb-key-input");
+      if (urlInp) urlInp.value = savedUrl;
+      if (keyInp) keyInp.value = savedKey;
+
+      if (window.supabase && savedUrl && savedKey) {
+        supabaseClient = window.supabase.createClient(savedUrl, savedKey);
+      }
+    }
+
+    async function syncFromSupabase(showFeedback = false) {
+      if (!supabaseClient) initSupabaseClient();
+      if (!supabaseClient) {
+        updateSyncStatusBadge(false, "Sin cliente Supabase");
+        return;
+      }
+
+      try {
+        updateSyncStatusBadge(true, "Sincronizando...");
+
+        const [resAlmacen, resClientes, resVentas, resCompras, resUsuarios] = await Promise.all([
+          supabaseClient.from("almacen").select("*").order("id", { ascending: true }),
+          supabaseClient.from("clientes").select("*").order("id", { ascending: true }),
+          supabaseClient.from("ventas").select("*").order("id", { ascending: false }),
+          supabaseClient.from("compras").select("*").order("id", { ascending: false }),
+          supabaseClient.from("usuarios").select("*").order("id", { ascending: true })
+        ]);
+
+        if (resAlmacen.error) throw resAlmacen.error;
+
+        state.almacen = (resAlmacen.data || []).map(row => ({
+          id: row.id,
+          descripcion: row.descripcion || "",
+          compatibilidad: row.compatibilidad || "GENERAL",
+          stock: Number(row.stock) || 0,
+          und: row.und || "Unidad",
+          pCompra: Number(row.p_compra) || 0,
+          pVenta: Number(row.p_venta) || 0,
+          detalles: row.detalles || "",
+          observacion: row.observacion || ""
+        }));
+
+        if (!resClientes.error && resClientes.data) {
+          state.clientes = resClientes.data.map(row => ({
+            id: row.id,
+            codigo: row.cod || "",
+            origen: row.origen || "GENERAL",
+            nombre: row.telefono || row.cod || "",
+            telefono: row.telefono || ""
+          }));
+        }
+
+        if (!resVentas.error && resVentas.data) {
+          state.ventas = resVentas.data.map(row => ({
+            id: row.id,
+            ticket: row.ticket || "",
+            fecha: row.fecha || new Date().toISOString().slice(0, 10),
+            cliente: row.cliente || "OTROS",
+            clienteNombre: row.origen || "",
+            origen: row.origen || "",
+            descripcion: row.descripcion || "",
+            cantidad: Number(row.cantidad) || 1,
+            precioUnit: Number(row.precio_uni) || 0,
+            total: Number(row.precio_total) || 0,
+            pagado: Number(row.pagado) || 0,
+            estado: row.estado || "Por Cancelar",
+            observacion: row.observacion || "",
+            items: []
+          }));
+        }
+
+        if (!resCompras.error && resCompras.data) {
+          state.compras = resCompras.data.map(row => ({
+            id: row.id,
+            repuestoId: row.repuesto_id,
+            concepto: row.repuesto_nombre || "",
+            fecha: row.fecha || new Date().toISOString().slice(0, 10),
+            cantidad: Number(row.cantidad) || 1,
+            costoUnit: Number(row.costo_uni) || 0,
+            total: Number(row.total) || 0,
+            descripcion: row.proveedor || ""
+          }));
+        }
+
+        if (!resUsuarios.error && resUsuarios.data && resUsuarios.data.length > 0) {
+          state.usuarios = resUsuarios.data.map(row => ({
+            id: row.id,
+            username: row.username,
+            password: row.password,
+            role: row.rol || "Operador",
+            permissions: {
+              eliminar_ventas: Boolean(row.perm_delete_sales),
+              modificar_precios: Boolean(row.perm_edit_prices),
+              acceso_sql: Boolean(row.perm_sql),
+              gestionar_usuarios: Boolean(row.perm_users)
+            }
+          }));
+        }
+
+        saveLocalBackup();
+        updateSyncStatusBadge(true, "Supabase Conectado");
+        renderAll();
+        if (showFeedback) {
+          showToast("Datos sincronizados en tiempo real con Supabase", "success");
+        }
+      } catch (err) {
+        console.warn("Aviso al sincronizar con Supabase:", err);
+        updateSyncStatusBadge(false, "Reconectando Supabase...");
+        if (showFeedback) {
+          showToast("No se pudo conectar con Supabase. Verifica haber ejecutado el Script SQL.", "warning");
+        }
+      }
+    }
+
+    function loadLocalBackup() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          state.almacen = parsed.almacen || JSON.parse(JSON.stringify(INITIAL_ALMACEN));
-          state.ventas = parsed.ventas || JSON.parse(JSON.stringify(INITIAL_VENTAS));
+          state.almacen = parsed.almacen || [];
+          state.ventas = parsed.ventas || [];
           state.compras = parsed.compras || [];
-          state.clientes = parsed.clientes || JSON.parse(JSON.stringify(INITIAL_CLIENTES));
-          state.usuarios = parsed.usuarios || JSON.parse(JSON.stringify(INITIAL_USUARIOS));
-        } else {
-          state.almacen = JSON.parse(JSON.stringify(INITIAL_ALMACEN));
-          state.ventas = JSON.parse(JSON.stringify(INITIAL_VENTAS));
-          state.compras = [];
-          state.clientes = JSON.parse(JSON.stringify(INITIAL_CLIENTES));
-          state.usuarios = JSON.parse(JSON.stringify(INITIAL_USUARIOS));
-          saveState();
+          state.clientes = parsed.clientes || [];
+          state.usuarios = (parsed.usuarios && parsed.usuarios.length > 0)
+            ? parsed.usuarios
+            : JSON.parse(JSON.stringify(INITIAL_USUARIOS));
         }
       } catch (e) {
-        state.almacen = JSON.parse(JSON.stringify(INITIAL_ALMACEN));
-        state.ventas = JSON.parse(JSON.stringify(INITIAL_VENTAS));
-        state.compras = [];
-        state.clientes = JSON.parse(JSON.stringify(INITIAL_CLIENTES));
-        state.usuarios = JSON.parse(JSON.stringify(INITIAL_USUARIOS));
+        console.error("Error leyendo caché local:", e);
       }
     }
 
-    function saveState() {
+    function saveLocalBackup() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           almacen: state.almacen,
@@ -1527,28 +1609,8 @@
         }));
         updateSidebarCounters();
       } catch (e) {
-        console.error("Error guardando en localStorage:", e);
+        console.error("Error guardando caché local:", e);
       }
-    }
-
-    function resetToExcelData() {
-      if (!hasPermission("eliminar_ventas")) {
-        requestAdminAuthorization("Restaurar los datos de fábrica del Excel requiere autorización de Administrador.", () => {
-          executeResetToExcel();
-        });
-        return;
-      }
-      executeResetToExcel();
-    }
-
-    function executeResetToExcel() {
-      state.almacen = JSON.parse(JSON.stringify(INITIAL_ALMACEN));
-      state.ventas = JSON.parse(JSON.stringify(INITIAL_VENTAS));
-      state.compras = [];
-      state.clientes = JSON.parse(JSON.stringify(INITIAL_CLIENTES));
-      saveState();
-      renderAll();
-      showToast("Datos restaurados al Libro de Cuentas (ANAROSA).xlsx", "success");
     }
 
     // ============================================================================
@@ -1561,7 +1623,6 @@
         document.getElementById("login-remember").checked = true;
       }
 
-      // Verificar si había un bloqueo de 1 minuto activo
       const savedLockout = Number(localStorage.getItem("anarosa_lockout_until") || 0);
       if (savedLockout > Date.now()) {
         loginLockoutUntil = savedLockout;
@@ -1604,7 +1665,7 @@
 
         if (failedLoginAttempts >= 3) {
           errBox.classList.add("hidden");
-          loginLockoutUntil = Date.now() + 60 * 1000; // 1 minuto exacto
+          loginLockoutUntil = Date.now() + 60 * 1000;
           localStorage.setItem("anarosa_lockout_until", String(loginLockoutUntil));
           startLockoutCountdown();
         } else {
@@ -1614,7 +1675,6 @@
         return;
       }
 
-      // Login exitoso
       failedLoginAttempts = 0;
       localStorage.removeItem("anarosa_lockout_until");
       document.getElementById("login-error-msg").classList.add("hidden");
@@ -1669,7 +1729,11 @@
 
     function loginAsUser(userObj) {
       state.currentUser = userObj;
-      state.supabaseGateUnlocked = Boolean(userObj.permissions && userObj.permissions.acceso_sql);
+      state.supabaseGateUnlocked = Boolean(
+        (userObj.permissions && userObj.permissions.acceso_sql) ||
+        userObj.username.toUpperCase() === "WILLOSIRIS" ||
+        userObj.username.toLowerCase() === "admin"
+      );
       state.tempPriceOverride = false;
 
       document.getElementById("login-screen").classList.add("hidden");
@@ -1677,6 +1741,7 @@
 
       updateUserUI();
       startInactivityMonitor();
+      syncFromSupabase(false);
       switchTab("inicio");
       showToast(`Bienvenido(a), ${userObj.username} (${userObj.role})`, "success");
     }
@@ -1686,7 +1751,6 @@
       document.getElementById("header-user-badge").textContent = state.currentUser.username;
       document.getElementById("header-role-badge").textContent = state.currentUser.role;
 
-      // Mostrar u ocultar apartado de Usuarios (exclusivo para WILLOSIRIS o quien tenga gestionar_usuarios)
       const navUsuarios = document.getElementById("nav-usuarios");
       if (hasPermission("gestionar_usuarios") || state.currentUser.username.toUpperCase() === "WILLOSIRIS") {
         navUsuarios.classList.remove("hidden");
@@ -1696,7 +1760,6 @@
         navUsuarios.classList.remove("flex");
       }
 
-      // Icono de candado en Supabase SQL
       const sqlLockIcon = document.getElementById("nav-sql-lock-icon");
       if (state.supabaseGateUnlocked || hasPermission("acceso_sql")) {
         sqlLockIcon.setAttribute("data-lucide", "unlock");
@@ -1724,7 +1787,6 @@
       initLoginScreen();
     }
 
-    // Monitor de Inactividad de 10 minutos (600 segundos)
     function startInactivityMonitor() {
       inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
       isSessionLocked = false;
@@ -1771,8 +1833,7 @@
       e.preventDefault();
       if (!state.currentUser) return;
       const pass = document.getElementById("unlock-password").value;
-      // Volver a sincronizar con la lista de usuarios por si cambió la clave
-      const freshUser = state.usuarios.find(u => u.id === state.currentUser.id) || state.currentUser;
+      const freshUser = state.usuarios.find(u => u.username.toLowerCase() === state.currentUser.username.toLowerCase()) || state.currentUser;
       if (pass === freshUser.password) {
         isSessionLocked = false;
         inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
@@ -1785,7 +1846,6 @@
       }
     }
 
-    // Modal de autorización puntual de Administrador para acciones restringidas
     function requestAdminAuthorization(reasonText, onAuthorizedCallback) {
       pendingAdminCallback = onAuthorizedCallback;
       document.getElementById("admin-auth-reason").textContent = reasonText;
@@ -1865,7 +1925,6 @@
     }
 
     function switchTab(tabName) {
-      // Si intenta entrar a 'usuarios' sin ser WILLOSIRIS / gestionar_usuarios
       if (tabName === "usuarios" && !hasPermission("gestionar_usuarios")) {
         showToast("El módulo de Usuarios es exclusivo para el administrador WILLOSIRIS", "warning");
         return;
@@ -1899,7 +1958,6 @@
       const totalUnits = state.almacen.reduce((acc, item) => acc + (Number(item.stock) || 0), 0);
       const pendingSalesCount = state.ventas.filter(v => v.estado === "Por Cancelar").length;
 
-      // Calcular cuántos clientes tienen deuda pendiente
       const debtMap = getClientDebtMap();
       const clientsWithDebtCount = Object.values(debtMap).filter(d => d.saldo > 0 || d.pendingCount > 0).length;
 
@@ -1967,10 +2025,10 @@
       const pendingContainer = document.getElementById("dashboard-pending-clients-links");
 
       if (pendingClients.length === 0) {
-        pendingContainer.innerHTML = `<span class="text-emerald-700 font-medium">¡Excelente! Ningún cliente mantiene deuda pendiente.</span>`;
+        pendingContainer.innerHTML = `<span class="text-emerald-700 font-medium">Sin deudas pendientes registradas.</span>`;
       } else {
         pendingContainer.innerHTML = pendingClients.map(info => {
-          const label = info.saldo > 0 ? `${info.codigo} (Debe: ${formatMoney(info.saldo)})` : `${info.codigo} (Precio por definir)`;
+          const label = info.saldo > 0 ? `${info.codigo} (Debe: ${formatMoney(info.saldo)})` : `${info.codigo} (Por Cancelar)`;
           return `<button onclick="jumpToClientSales('${info.codigo}')" class="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-900 hover:bg-amber-100 font-medium transition">${label}</button>`;
         }).join("");
       }
@@ -1980,15 +2038,12 @@
       const totalPendiente = Math.max(0, totalFacturado - totalCobrado);
 
       const costoRepuestosVendidos = filteredVentas.reduce((acc, v) => {
-        if (Array.isArray(v.items) && v.items.length > 0) {
-          return acc + v.items.reduce((s, it) => s + getProductCost(it.descripcion) * (Number(it.cantidad) || 1), 0);
-        }
         return acc + getProductCost(v.descripcion) * (Number(v.cantidad) || 1);
       }, 0);
 
       const gastosExtra = filteredCompras.reduce((acc, c) => acc + (Number(c.total) || 0), 0);
       const costoTotalPeriodo = costoRepuestosVendidos + gastosExtra;
-      const utilidadBruta = totalFacturado - costoTotalPeriodo;
+      const utilidadBruta = totalFacturado - costoRepuestosVendidos;
 
       const capitalStockActual = state.almacen.reduce((acc, a) => acc + (Number(a.stock) || 0) * (Number(a.pCompra) || 0), 0);
       const valorVentaStockActual = state.almacen.reduce((acc, a) => acc + (Number(a.stock) || 0) * (Number(a.pVenta) || 0), 0);
@@ -2047,8 +2102,8 @@
         return { ...m, ventasSum, cobradoSum, costoSum };
       });
 
-      const maxVal = Math.max(1000, ...dataPerMonth.map(d => Math.max(d.ventasSum, d.costoSum)));
-      const yMax = Math.ceil(maxVal / 200) * 200;
+      const maxVal = Math.max(500, ...dataPerMonth.map(d => Math.max(d.ventasSum, d.costoSum)));
+      const yMax = Math.ceil(maxVal / 100) * 100;
       const container = document.getElementById("chart-12-months");
       const ySteps = [yMax, yMax * 0.75, yMax * 0.5, yMax * 0.25, 0];
 
@@ -2098,7 +2153,7 @@
       const clientContainer = document.getElementById("chart-clientes-bars");
 
       if (sortedClients.length === 0) {
-        clientContainer.innerHTML = `<p class="text-xs text-gray-500">Sin ventas registradas en este periodo.</p>`;
+        clientContainer.innerHTML = `<p class="text-xs text-gray-500">Todavía no hay ventas registradas. Registra tu primera venta para ver estadísticas por cliente.</p>`;
       } else {
         clientContainer.innerHTML = sortedClients.map(([cli, st]) => {
           const pctTotal = Math.round((st.total / maxClientTotal) * 100);
@@ -2125,13 +2180,7 @@
 
       const prodStats = {};
       filteredVentas.forEach(v => {
-        if (Array.isArray(v.items) && v.items.length > 0) {
-          v.items.forEach(it => {
-            prodStats[it.descripcion] = (prodStats[it.descripcion] || 0) + (Number(it.subtotal) || 0);
-          });
-        } else {
-          prodStats[v.descripcion] = (prodStats[v.descripcion] || 0) + (Number(v.total) || 0);
-        }
+        prodStats[v.descripcion] = (prodStats[v.descripcion] || 0) + (Number(v.total) || 0);
       });
 
       const sortedProds = Object.entries(prodStats).sort((a, b) => b[1] - a[1]);
@@ -2172,7 +2221,7 @@
 
       const results = state.almacen.filter(item => {
         if (marcaFilter !== "ALL") {
-          if (!item.compatibilidad.toUpperCase().includes(marcaFilter)) return false;
+          if (!(item.compatibilidad || "").toUpperCase().includes(marcaFilter)) return false;
         }
         if (stockFilter === "NORMAL" && item.stock <= 5) return false;
         if (stockFilter === "LOW" && item.stock > 5) return false;
@@ -2186,8 +2235,11 @@
       const grid = document.getElementById("buscar-results-grid");
       if (results.length === 0) {
         grid.innerHTML = `
-          <div class="col-span-full bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 text-xs">
-            No se encontraron repuestos que coincidan con tu búsqueda.
+          <div class="col-span-full bg-white border border-gray-200 rounded-xl p-10 text-center text-gray-500 text-xs space-y-3">
+            <p>Tu almacén está vacío o no hay coincidencias con el filtro actual.</p>
+            <button onclick="switchTab('almacen'); openProductModal();" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#101929] text-white font-medium">
+              + Registrar Primer Repuesto en Almacén
+            </button>
           </div>
         `;
         return;
@@ -2228,7 +2280,7 @@
 
               <div class="mt-3 space-y-1.5 text-xs text-gray-600">
                 <div>
-                  <strong class="text-gray-800">Detalles:</strong> ${item.detalles || "Repuesto estándar en almacén"}
+                  <strong class="text-gray-800">Detalles:</strong> ${item.detalles || "Sin detalles adicionales"}
                 </div>
                 <div>
                   <strong class="text-gray-800">Observaciones:</strong>
@@ -2258,14 +2310,17 @@
     }
 
     // ============================================================================
-    // 7. VISTA 3: REGISTRAR VENTA (POS CENTRO COMERCIAL + BUSCADOR DE CLIENTES)
+    // 7. VISTA 3: REGISTRAR VENTA (POS CENTRO COMERCIAL + SUPABASE REAL-TIME)
     // ============================================================================
     function renderPosView() {
       renderPosProductPicker();
       renderPosCartTable();
-      // Si aún no hay cliente seleccionado en el POS, preseleccionar el primero (TALLER)
-      if (!state.posSelectedClient && state.clientes.length > 0) {
-        selectPosClient(state.clientes[0].codigo);
+      if (!state.posSelectedClient) {
+        if (state.clientes.length > 0) {
+          selectPosClient(state.clientes[0].codigo);
+        } else {
+          selectPosClient("OTROS");
+        }
       }
     }
 
@@ -2279,13 +2334,12 @@
       });
 
       if (matches.length === 0) {
-        listEl.innerHTML = `<div class="p-4 text-center text-xs text-gray-400">No se encontraron productos con ese nombre.</div>`;
+        listEl.innerHTML = `<div class="p-4 text-center text-xs text-gray-400">No hay productos registrados en almacén todavía. Agrégalos en la pestaña "Compras y Almacén".</div>`;
         return;
       }
 
       listEl.innerHTML = matches.map(prod => {
         const inCart = state.posCart.find(c => c.productId === prod.id);
-        const stockLeft = prod.stock - (inCart ? inCart.cantidad : 0);
         const noStock = prod.stock <= 0;
 
         return `
@@ -2294,7 +2348,7 @@
               <div class="font-bold text-gray-900 truncate">${prod.descripcion}</div>
               <div class="text-[11px] text-gray-500 flex flex-wrap items-center gap-2 mt-0.5">
                 <span class="px-1.5 py-0.2 bg-gray-100 rounded text-gray-700 font-medium">${prod.compatibilidad}</span>
-                <span>• Stock Almacén: <strong class="${prod.stock <= 3 ? 'text-red-600' : 'text-emerald-700'}">${prod.stock} ${prod.und}</strong></span>
+                <span>• Stock Disponible: <strong class="${prod.stock <= 3 ? 'text-red-600' : 'text-emerald-700'}">${prod.stock} ${prod.und}</strong></span>
                 ${inCart ? `<span class="text-blue-700 font-semibold">(En carrito: ${inCart.cantidad})</span>` : ""}
               </div>
             </div>
@@ -2336,7 +2390,6 @@
         existing.cantidad += 1;
         existing.subtotal = existing.cantidad * existing.precioUnit;
       } else {
-        // Por defecto la cantidad empieza en 1 como pidió el usuario
         state.posCart.push({
           productId: prod.id,
           descripcion: prod.descripcion,
@@ -2415,7 +2468,7 @@
         tbody.innerHTML = `
           <tr>
             <td colspan="6" class="py-10 text-center text-gray-400 text-xs">
-              Tu lista de venta está vacía. Haz clic en <strong>"+ Agregar"</strong> en cualquier repuesto de arriba para añadirlo (cantidad por defecto = 1).
+              Tu carrito de venta está vacío. Selecciona uno o más repuestos arriba (cantidad inicial = 1).
             </td>
           </tr>
         `;
@@ -2477,7 +2530,6 @@
       lucide.createIcons();
     }
 
-    // Buscador Inteligente de Clientes Frecuentes + Desbloqueo de "OTROS"
     function openPosClientDropdown() {
       const q = document.getElementById("pos-client-search-input").value;
       renderPosClientDropdownList(q);
@@ -2504,8 +2556,8 @@
       const dd = document.getElementById("pos-client-dropdown");
 
       const filteredClients = state.clientes.filter(c => {
-        if (!q) return true;
-        return `${c.codigo} ${c.nombre} ${c.origen}`.toLowerCase().includes(q);
+        if (!q || q.includes("otros")) return true;
+        return `${c.codigo} ${c.nombre || ""} ${c.origen}`.toLowerCase().includes(q);
       });
 
       const clientItemsHtml = filteredClients.map(c => {
@@ -2519,7 +2571,7 @@
           >
             <div>
               <span class="font-bold text-gray-900">${c.codigo}</span>
-              <span class="text-gray-600 ml-1.5">— ${c.nombre}</span>
+              <span class="text-gray-600 ml-1.5">— ${c.nombre || c.telefono || c.origen}</span>
               <span class="ml-1.5 px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px]">${c.origen}</span>
             </div>
             ${hasDebt
@@ -2530,7 +2582,6 @@
         `;
       }).join("");
 
-      // Opción fija al final para seleccionar "OTROS" y desbloquear los campos manuales
       const otrosOptionHtml = `
         <button
           type="button"
@@ -2573,7 +2624,6 @@
         nomInput.value = "";
         codInput.placeholder = "Escribe Código / Placa / DNI...";
         nomInput.placeholder = "Escribe el nombre del cliente...";
-        codInput.focus();
 
         modeBadge.textContent = "Modo Manual Desbloqueado (OTROS)";
         modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold";
@@ -2582,7 +2632,7 @@
         const cli = state.clientes.find(c => c.codigo === codigo);
         if (!cli) return;
         state.posSelectedClient = { ...cli, isManual: false };
-        searchInput.value = `${cli.codigo} — ${cli.nombre} (${cli.origen})`;
+        searchInput.value = `${cli.codigo} — ${cli.nombre || cli.origen}`;
 
         codInput.setAttribute("readonly", "true");
         oriInput.setAttribute("readonly", "true");
@@ -2590,12 +2640,11 @@
 
         codInput.value = cli.codigo;
         oriInput.value = cli.origen;
-        nomInput.value = cli.nombre;
+        nomInput.value = cli.nombre || cli.telefono || cli.codigo;
 
         modeBadge.textContent = "Autorellenado (Cliente Frecuente)";
         modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600";
 
-        // Verificar si mantiene deuda pendiente
         const debtMap = getClientDebtMap();
         const dInfo = debtMap[cli.codigo.toUpperCase()];
         if (dInfo && dInfo.saldo > 0) {
@@ -2607,7 +2656,6 @@
       }
     }
 
-    // Cerrar dropdown de clientes al hacer clic fuera
     document.addEventListener("click", (e) => {
       const dd = document.getElementById("pos-client-dropdown");
       const inp = document.getElementById("pos-client-search-input");
@@ -2648,16 +2696,16 @@
       document.getElementById("pos-summary-balance").textContent = formatMoney(balance);
     }
 
-    function submitPosSale() {
+    async function submitPosSale() {
       if (state.posCart.length === 0) {
         showToast("Agrega al menos un producto a la venta antes de procesar", "warning");
         return;
       }
 
       const codigoCli = (document.getElementById("pos-client-codigo").value || "").trim().toUpperCase() || "OTRO";
-      const origenCli = (document.getElementById("pos-client-origen").value || "").trim().toUpperCase() || "OTROS";
-      const nombreCli = (document.getElementById("pos-client-nombre").value || "").trim() || "Cliente Particular";
-      const fecha = document.getElementById("pos-fecha").value || "2026-11-09";
+      const origenCli = (document.getElementById("pos-client-origen").value || "").trim().toUpperCase() || "PARTICULAR";
+      const nombreCli = (document.getElementById("pos-client-nombre").value || "").trim();
+      const fecha = document.getElementById("pos-fecha").value || new Date().toISOString().slice(0, 10);
       const payMode = document.getElementById("pos-payment-mode").value;
       const observacion = document.getElementById("pos-observacion").value.trim();
 
@@ -2678,44 +2726,77 @@
         estado = "Por Cancelar";
       }
 
-      const summaryDesc = state.posCart.map(i => `${i.cantidad}x ${i.descripcion}`).join(" + ");
+      const ticketCode = "TK-" + Date.now().toString().slice(-6);
+      const summaryDesc = state.posCart.length === 1
+        ? state.posCart[0].descripcion
+        : state.posCart.map(i => `${i.cantidad}x ${i.descripcion} (S/${i.subtotal.toFixed(2)})`).join(" + ");
       const unitPriceRef = state.posCart.length === 1 ? state.posCart[0].precioUnit : totalAmount;
 
-      const newId = state.ventas.reduce((max, v) => Math.max(max, v.id), 0) + 1;
-      state.ventas.push({
-        id: newId,
-        fecha,
-        cliente: codigoCli,
-        clienteNombre: nombreCli,
-        origen: origenCli,
-        descripcion: state.posCart.length === 1 ? state.posCart[0].descripcion : summaryDesc,
-        cantidad: totalUnits,
-        precioUnit: unitPriceRef,
-        total: totalAmount,
-        pagado,
-        estado,
-        observacion,
-        items: JSON.parse(JSON.stringify(state.posCart))
-      });
+      const origenWithNombre = nombreCli ? `${origenCli} - ${nombreCli}` : origenCli;
 
-      // Descontar del Stock en Almacén cada uno de los productos vendidos
-      state.posCart.forEach(cartItem => {
-        const prod = state.almacen.find(a => a.id === cartItem.productId);
-        if (prod) {
-          prod.stock = Math.max(0, (Number(prod.stock) || 0) - cartItem.cantidad);
+      if (supabaseClient) {
+        try {
+          const { error: saleErr } = await supabaseClient.from("ventas").insert([{
+            ticket: ticketCode,
+            descripcion: summaryDesc,
+            cantidad: totalUnits,
+            precio_uni: unitPriceRef,
+            precio_total: totalAmount,
+            pagado: pagado,
+            fecha: fecha,
+            cliente: codigoCli,
+            origen: origenWithNombre,
+            estado: estado,
+            observacion: observacion
+          }]);
+          if (saleErr) throw saleErr;
+
+          for (const cartItem of state.posCart) {
+            const prod = state.almacen.find(a => a.id === cartItem.productId);
+            if (prod) {
+              const newStock = Math.max(0, (Number(prod.stock) || 0) - cartItem.cantidad);
+              await supabaseClient.from("almacen").update({ stock: newStock }).eq("id", prod.id);
+            }
+          }
+
+          await syncFromSupabase(false);
+        } catch (err) {
+          console.error("Error guardando venta en Supabase:", err);
+          showToast("Error al guardar en Supabase: " + (err.message || ""), "warning");
+          return;
         }
-      });
+      } else {
+        const newId = state.ventas.reduce((max, v) => Math.max(max, v.id), 0) + 1;
+        state.ventas.unshift({
+          id: newId,
+          ticket: ticketCode,
+          fecha,
+          cliente: codigoCli,
+          clienteNombre: origenWithNombre,
+          origen: origenWithNombre,
+          descripcion: summaryDesc,
+          cantidad: totalUnits,
+          precioUnit: unitPriceRef,
+          total: totalAmount,
+          pagado,
+          estado,
+          observacion
+        });
+        state.posCart.forEach(cartItem => {
+          const prod = state.almacen.find(a => a.id === cartItem.productId);
+          if (prod) prod.stock = Math.max(0, (Number(prod.stock) || 0) - cartItem.cantidad);
+        });
+        saveLocalBackup();
+      }
 
-      // Limpiar carrito
       state.posCart = [];
       document.getElementById("pos-observacion").value = "";
       document.getElementById("pos-adelanto-input").value = "0";
       document.getElementById("pos-payment-mode").value = "CREDITO";
       onPosPaymentModeChange("CREDITO");
 
-      saveState();
       renderAll();
-      showToast(`Venta #${newId} registrada exitosamente para ${codigoCli} (${formatMoney(totalAmount)})`, "success");
+      showToast(`Venta registrada y guardada en Supabase para ${codigoCli} (${formatMoney(totalAmount)})`, "success");
       switchTab("historial-ventas");
     }
 
@@ -2757,13 +2838,9 @@
       return state.ventas.filter(v => {
         if (fEstado !== "all" && v.estado !== fEstado) return false;
         if (fCliente !== "all" && v.cliente !== fCliente) return false;
-        if (fProducto !== "all") {
-          const matchMain = v.descripcion.includes(fProducto);
-          const matchSub = Array.isArray(v.items) && v.items.some(it => it.descripcion === fProducto);
-          if (!matchMain && !matchSub) return false;
-        }
+        if (fProducto !== "all" && !(v.descripcion || "").includes(fProducto)) return false;
         if (fSearch) {
-          const hay = `${v.id} ${v.cliente} ${v.clienteNombre || ""} ${v.descripcion} ${v.observacion || ""} ${v.fecha}`.toLowerCase();
+          const hay = `${v.id} ${v.ticket || ""} ${v.cliente} ${v.origen || ""} ${v.descripcion} ${v.observacion || ""} ${v.fecha}`.toLowerCase();
           if (!hay.includes(fSearch)) return false;
         }
         return true;
@@ -2777,7 +2854,7 @@
       const sumSaldo = Math.max(0, sumTotal - sumPagado);
 
       document.getElementById("ventas-filter-summary").innerHTML = `
-        <div>Mostrando <strong>${filtered.length}</strong> ventas registradas</div>
+        <div>Mostrando <strong>${filtered.length}</strong> ventas en Supabase</div>
         <div class="flex flex-wrap items-center gap-4">
           <span>Total Facturado: <strong>${formatMoney(sumTotal)}</strong></span>
           <span>Cobrado / Adelantos: <strong class="text-emerald-700">${formatMoney(sumPagado)}</strong></span>
@@ -2787,7 +2864,7 @@
 
       const tbody = document.getElementById("ventas-table-body");
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-gray-400">No se encontraron ventas con los filtros seleccionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="py-10 text-center text-gray-400">Todavía no hay ventas registradas. Ve a "Registrar Venta" para crear la primera.</td></tr>`;
         return;
       }
 
@@ -2803,22 +2880,15 @@
           ? "bg-[#14171f] text-white hover:bg-gray-800"
           : "bg-[#f3f4f6] text-gray-800 hover:bg-gray-200";
 
-        let itemsDetailHtml = `<div class="font-medium text-gray-900">${v.descripcion}</div>`;
-        if (Array.isArray(v.items) && v.items.length > 1) {
-          itemsDetailHtml = v.items.map(it =>
-            `<div class="text-[11px] text-gray-800">• <strong>${it.cantidad}x</strong> ${it.descripcion} <span class="text-gray-500">(${formatMoney(it.subtotal)})</span></div>`
-          ).join("");
-        }
-
         return `
           <tr class="hover:bg-gray-50/80 transition group">
             <td class="py-3 px-3 text-gray-400 font-mono">#${v.id}</td>
             <td class="py-3 px-3 whitespace-nowrap">
               <div class="font-bold text-gray-900">${v.cliente}</div>
-              <div class="text-[10px] text-gray-400">${v.clienteNombre || v.origen || ""}</div>
+              <div class="text-[10px] text-gray-400">${v.origen || ""}</div>
             </td>
             <td class="py-3 px-3">
-              ${itemsDetailHtml}
+              <div class="font-medium text-gray-900">${v.descripcion}</div>
               ${v.observacion ? `<div class="text-[10px] text-amber-700 mt-0.5">Obs: ${v.observacion}</div>` : ""}
             </td>
             <td class="py-3 px-3 text-gray-700 whitespace-nowrap">${formatDatePE(v.fecha)}</td>
@@ -2827,7 +2897,7 @@
             <td class="py-3 px-3 text-right text-emerald-700 whitespace-nowrap">${formatMoney(pagado)}</td>
             <td class="py-3 px-3 text-right font-bold text-gray-900 whitespace-nowrap">${formatMoney(saldo)}</td>
             <td class="py-3 px-3 whitespace-nowrap">
-              <button onclick="toggleSaleStatus(${v.id})" title="Clic para alternar Cancelado / Por Cancelar" class="px-2.5 py-0.5 rounded-full text-[11px] font-medium transition cursor-pointer ${badgeClass}">
+              <button onclick="toggleSaleStatus(${v.id})" title="Clic para alternar Cancelado / Por Cancelar en Supabase" class="px-2.5 py-0.5 rounded-full text-[11px] font-medium transition cursor-pointer ${badgeClass}">
                 ${v.estado}
               </button>
             </td>
@@ -2847,20 +2917,31 @@
       lucide.createIcons();
     }
 
-    function toggleSaleStatus(saleId) {
+    async function toggleSaleStatus(saleId) {
       const item = state.ventas.find(v => v.id === saleId);
       if (!item) return;
-      if (item.estado === "Por Cancelar") {
-        item.estado = "Cancelado";
-        item.pagado = Number(item.total) || 0;
-        showToast(`Venta #${item.id} (${item.cliente}) marcada como Cancelado`, "success");
+
+      const newEstado = item.estado === "Por Cancelar" ? "Cancelado" : "Por Cancelar";
+      const newPagado = newEstado === "Cancelado" ? (Number(item.total) || 0) : 0;
+
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from("ventas").update({
+          estado: newEstado,
+          pagado: newPagado
+        }).eq("id", saleId);
+
+        if (error) {
+          showToast("Error al actualizar estado en Supabase", "warning");
+          return;
+        }
+        await syncFromSupabase(false);
       } else {
-        item.estado = "Por Cancelar";
-        item.pagado = 0;
-        showToast(`Venta #${item.id} (${item.cliente}) cambiada a Por Cancelar`, "info");
+        item.estado = newEstado;
+        item.pagado = newPagado;
+        saveLocalBackup();
+        renderAll();
       }
-      saveState();
-      renderAll();
+      showToast(`Venta #${saleId} actualizada a ${newEstado}`, "success");
     }
 
     function openAbonoModal(saleId) {
@@ -2882,19 +2963,38 @@
       m.classList.remove("flex");
     }
 
-    function handleAbonoSubmit(e) {
+    async function handleAbonoSubmit(e) {
       e.preventDefault();
       const id = Number(document.getElementById("abono-venta-id").value);
       const v = state.ventas.find(x => x.id === id);
       if (!v) return;
+
       const pagado = Math.max(0, Number(document.getElementById("abono-pagado-input").value) || 0);
-      v.pagado = pagado;
-      v.estado = pagado >= v.total && v.total > 0 ? "Cancelado" : "Por Cancelar";
-      v.observacion = document.getElementById("abono-obs-input").value.trim();
-      saveState();
+      const estado = pagado >= v.total && v.total > 0 ? "Cancelado" : "Por Cancelar";
+      const observacion = document.getElementById("abono-obs-input").value.trim();
+
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from("ventas").update({
+          pagado,
+          estado,
+          observacion
+        }).eq("id", id);
+
+        if (error) {
+          showToast("Error al guardar abono en Supabase", "warning");
+          return;
+        }
+        await syncFromSupabase(false);
+      } else {
+        v.pagado = pagado;
+        v.estado = estado;
+        v.observacion = observacion;
+        saveLocalBackup();
+        renderAll();
+      }
+
       closeAbonoModal();
-      renderAll();
-      showToast(`Pago actualizado en venta #${v.id}`, "success");
+      showToast(`Pago actualizado en venta #${id}`, "success");
     }
 
     function attemptDeleteSale(saleId) {
@@ -2907,16 +3007,22 @@
       }
     }
 
-    function executeDeleteSale(saleId) {
-      const idx = state.ventas.findIndex(v => v.id === saleId);
-      if (idx === -1) return;
-      const removed = state.ventas.splice(idx, 1)[0];
-      saveState();
-      renderAll();
-      showToast(`Venta #${removed.id} de ${removed.cliente} eliminada por Administrador`, "info");
+    async function executeDeleteSale(saleId) {
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from("ventas").delete().eq("id", saleId);
+        if (error) {
+          showToast("Error al eliminar en Supabase", "warning");
+          return;
+        }
+        await syncFromSupabase(false);
+      } else {
+        state.ventas = state.ventas.filter(v => v.id !== saleId);
+        saveLocalBackup();
+        renderAll();
+      }
+      showToast(`Venta #${saleId} eliminada permanentemente`, "info");
     }
 
-    // Impresión de Reportes (Semanal, Mensual, Anual)
     function onReportTypeChange() {
       const type = document.getElementById("report-period-type").value;
       const picker = document.getElementById("report-month-picker");
@@ -2925,7 +3031,7 @@
 
     function openPrintReportModal() {
       const type = document.getElementById("report-period-type").value;
-      const monthVal = document.getElementById("report-month-picker").value || "2026-09";
+      const monthVal = document.getElementById("report-month-picker").value || "2026-11";
 
       let rows = [];
       let titlePeriod = "";
@@ -2938,9 +3044,8 @@
         rows = state.ventas.filter(v => (v.fecha || "").startsWith(year));
         titlePeriod = `REPORTE ANUAL DE VENTAS (AÑO ${year})`;
       } else if (type === "SEMANAL") {
-        // Toma los últimos 7 días con respecto a la fecha más reciente registrada o mes actual
         const sortedDates = state.ventas.map(v => v.fecha).sort();
-        const latestDateStr = sortedDates[sortedDates.length - 1] || "2026-10-17";
+        const latestDateStr = sortedDates[sortedDates.length - 1] || new Date().toISOString().slice(0, 10);
         const latestDate = new Date(latestDateStr + "T00:00:00");
         const weekAgo = new Date(latestDate.getTime() - 7 * 24 * 60 * 60 * 1000);
         rows = state.ventas.filter(v => {
@@ -3029,7 +3134,7 @@
     }
 
     // ============================================================================
-    // 9. VISTA 5: COMPRAS Y ALMACÉN (CON BLOQUEO DE EDICIÓN DE PRECIOS)
+    // 9. VISTA 5: COMPRAS Y ALMACÉN (CON CRUD REAL EN SUPABASE)
     // ============================================================================
     function renderAlmacenView() {
       const compraSel = document.getElementById("compra-producto-id");
@@ -3059,56 +3164,66 @@
       }
 
       const tbody = document.getElementById("almacen-table-body");
-      tbody.innerHTML = state.almacen.map((item, index) => {
-        const pCompra = Number(item.pCompra) || 0;
-        const pVenta = Number(item.pVenta) || 0;
-        const ganancia = pVenta - pCompra;
-        const isLow = Number(item.stock) <= 3;
-
-        return `
-          <tr class="hover:bg-gray-50 transition">
-            <td class="py-3 px-4 text-gray-400 font-medium">${index + 1}</td>
-            <td class="py-3 px-4 font-bold text-gray-900">${item.descripcion}</td>
-            <td class="py-3 px-4">
-              <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[11px] font-medium">${item.compatibilidad}</span>
-            </td>
-            <td class="py-3 px-4 text-center">
-              <span class="px-2.5 py-0.5 rounded-full font-bold ${isLow ? 'bg-red-100 text-red-800' : 'bg-emerald-50 text-emerald-800'}">
-                ${item.stock} ${item.und}
-              </span>
-            </td>
-            <td class="py-3 px-4 text-right text-gray-700">${formatMoney(pCompra)}</td>
-            <td class="py-3 px-4 text-right font-bold text-gray-900">${formatMoney(pVenta)}</td>
-            <td class="py-3 px-4 text-right text-emerald-700 font-medium">+${formatMoney(ganancia)}</td>
-            <td class="py-3 px-4 text-gray-500 text-[11px]">
-              <div class="text-gray-700">${item.detalles || ""}</div>
-              <div class="${isLow ? 'text-red-600 font-medium' : 'text-gray-400'}">${item.observacion || ""}</div>
-            </td>
-            <td class="py-3 px-4 text-right whitespace-nowrap">
-              <button onclick="openProductModal(${item.id})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-gray-200 hover:border-gray-400 text-gray-700 hover:text-black text-[11px] transition">
-                <i data-lucide="sliders-horizontal" class="w-3 h-3"></i>
-                Editar
-              </button>
+      if (state.almacen.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="py-10 text-center text-gray-400 text-xs">
+              Tu tabla <code class="bg-gray-100 px-1 rounded">almacen</code> en Supabase está lista y en blanco. Haz clic en <strong>"+ Nuevo repuesto en Almacén"</strong> arriba a la derecha para agregar tu primer producto.
             </td>
           </tr>
         `;
-      }).join("");
+      } else {
+        tbody.innerHTML = state.almacen.map((item, index) => {
+          const pCompra = Number(item.pCompra) || 0;
+          const pVenta = Number(item.pVenta) || 0;
+          const ganancia = pVenta - pCompra;
+          const isLow = Number(item.stock) <= 3;
+
+          return `
+            <tr class="hover:bg-gray-50 transition">
+              <td class="py-3 px-4 text-gray-400 font-medium">${index + 1}</td>
+              <td class="py-3 px-4 font-bold text-gray-900">${item.descripcion}</td>
+              <td class="py-3 px-4">
+                <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[11px] font-medium">${item.compatibilidad}</span>
+              </td>
+              <td class="py-3 px-4 text-center">
+                <span class="px-2.5 py-0.5 rounded-full font-bold ${isLow ? 'bg-red-100 text-red-800' : 'bg-emerald-50 text-emerald-800'}">
+                  ${item.stock} ${item.und}
+                </span>
+              </td>
+              <td class="py-3 px-4 text-right text-gray-700">${formatMoney(pCompra)}</td>
+              <td class="py-3 px-4 text-right font-bold text-gray-900">${formatMoney(pVenta)}</td>
+              <td class="py-3 px-4 text-right text-emerald-700 font-medium">+${formatMoney(ganancia)}</td>
+              <td class="py-3 px-4 text-gray-500 text-[11px]">
+                <div class="text-gray-700">${item.detalles || ""}</div>
+                <div class="${isLow ? 'text-red-600 font-medium' : 'text-gray-400'}">${item.observacion || ""}</div>
+              </td>
+              <td class="py-3 px-4 text-right whitespace-nowrap">
+                <button onclick="openProductModal(${item.id})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-gray-200 hover:border-gray-400 text-gray-700 hover:text-black text-[11px] transition">
+                  <i data-lucide="sliders-horizontal" class="w-3 h-3"></i>
+                  Editar
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
 
       const histContainer = document.getElementById("compras-history-container");
       if (state.compras.length === 0) {
-        histContainer.innerHTML = `<p class="text-xs text-gray-500">Todavía no registraste compras adicionales o gastos varios este mes.</p>`;
+        histContainer.innerHTML = `<p class="text-xs text-gray-500">Todavía no registraste compras de mercadería o gastos varios.</p>`;
       } else {
         histContainer.innerHTML = `
           <div class="overflow-x-auto border-t border-gray-100">
             <table class="w-full text-left text-xs">
               <thead>
                 <tr class="border-b border-gray-200 text-gray-600">
-                  <th class="py-2.5 px-3">Concepto</th>
+                  <th class="py-2.5 px-3">Concepto / Repuesto</th>
                   <th class="py-2.5 px-3">Fecha</th>
                   <th class="py-2.5 px-3 text-center">Cant.</th>
                   <th class="py-2.5 px-3 text-right">Costo Unit.</th>
                   <th class="py-2.5 px-3 text-right">Monto Total</th>
-                  <th class="py-2.5 px-3">Descripción</th>
+                  <th class="py-2.5 px-3">Proveedor / Nota</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
@@ -3145,7 +3260,7 @@
       document.getElementById("compra-total-preview").innerHTML = `Total egreso: <strong>${formatMoney(cant * costo)}</strong>`;
     }
 
-    function handlePurchaseSubmit(e) {
+    async function handlePurchaseSubmit(e) {
       e.preventDefault();
       const selVal = document.getElementById("compra-producto-id").value;
       if (!selVal) return;
@@ -3154,34 +3269,62 @@
       const cantidad = Number(document.getElementById("compra-cantidad").value) || 1;
       const costoUnit = Number(document.getElementById("compra-costo-unit").value) || 0;
       const total = cantidad * costoUnit;
-      const descripcion = document.getElementById("compra-descripcion").value.trim();
+      const proveedor = document.getElementById("compra-descripcion").value.trim();
 
-      let concepto = "";
+      let repuestoId = null;
+      let repuestoNombre = "";
+
       if (selVal.startsWith("PROD_")) {
-        const prodId = Number(selVal.replace("PROD_", ""));
-        const prod = state.almacen.find(a => a.id === prodId);
+        repuestoId = Number(selVal.replace("PROD_", ""));
+        const prod = state.almacen.find(a => a.id === repuestoId);
         if (prod) {
-          prod.stock = (Number(prod.stock) || 0) + cantidad;
+          repuestoNombre = `COMPRA STOCK: ${prod.descripcion}`;
+          const nuevoStock = (Number(prod.stock) || 0) + cantidad;
+          const updateData = { stock: nuevoStock };
           if (costoUnit > 0 && (hasPermission("modificar_precios") || state.tempPriceOverride)) {
-            prod.pCompra = costoUnit;
+            updateData.p_compra = costoUnit;
           }
-          concepto = `COMPRA STOCK: ${prod.descripcion}`;
+          if (supabaseClient) {
+            await supabaseClient.from("almacen").update(updateData).eq("id", repuestoId);
+          } else {
+            prod.stock = nuevoStock;
+            if (updateData.p_compra) prod.pCompra = costoUnit;
+          }
         }
       } else {
-        concepto = selVal.replace("GASTO_", "");
+        repuestoNombre = selVal.replace("GASTO_", "");
       }
 
-      const newId = state.compras.reduce((max, c) => Math.max(max, c.id), 0) + 1;
-      state.compras.unshift({ id: newId, concepto, fecha, cantidad, costoUnit, total, descripcion });
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from("compras").insert([{
+          repuesto_id: repuestoId,
+          repuesto_nombre: repuestoNombre,
+          cantidad,
+          costo_uni: costoUnit,
+          total,
+          fecha,
+          proveedor
+        }]);
+        if (error) {
+          showToast("Error registrando compra en Supabase: " + error.message, "warning");
+          return;
+        }
+        await syncFromSupabase(false);
+      } else {
+        const newId = state.compras.reduce((max, c) => Math.max(max, c.id), 0) + 1;
+        state.compras.unshift({ id: newId, repuestoId, concepto: repuestoNombre, fecha, cantidad, costoUnit, total, descripcion: proveedor });
+        saveLocalBackup();
+        renderAll();
+      }
+
       document.getElementById("compra-descripcion").value = "";
-      saveState();
-      renderAll();
-      showToast(`Compra registrada: ${concepto}`, "success");
+      showToast(`Ingreso registrado en Supabase: ${repuestoNombre}`, "success");
     }
 
     function openProductModal(editId = null) {
       const modal = document.getElementById("modal-producto");
-      const canEditPrices = hasPermission("modificar_precios") || state.tempPriceOverride;
+      // Si está creando un producto desde cero o tiene permiso de administrador, puede definir el precio
+      const canEditPrices = !editId || hasPermission("modificar_precios") || state.tempPriceOverride;
 
       const pCompraInput = document.getElementById("prod-pcompra");
       const pVentaInput = document.getElementById("prod-pventa");
@@ -3245,7 +3388,7 @@
       modal.classList.remove("flex");
     }
 
-    function handleProductSubmit(e) {
+    async function handleProductSubmit(e) {
       e.preventDefault();
       const editId = document.getElementById("prod-edit-id").value;
       const descripcion = document.getElementById("prod-descripcion").value.trim().toUpperCase();
@@ -3257,40 +3400,65 @@
       const detalles = document.getElementById("prod-detalles").value.trim();
       const observacion = document.getElementById("prod-observacion").value.trim();
 
-      if (editId) {
-        const idx = state.almacen.findIndex(a => a.id === Number(editId));
-        if (idx !== -1) {
-          state.almacen[idx] = { ...state.almacen[idx], descripcion, compatibilidad, und, stock, pCompra, pVenta, detalles, observacion };
-          showToast(`Repuesto "${descripcion}" actualizado`, "success");
+      const payload = {
+        descripcion,
+        compatibilidad,
+        und,
+        stock,
+        p_compra: pCompra,
+        p_venta: pVenta,
+        detalles,
+        observacion
+      };
+
+      if (supabaseClient) {
+        if (editId) {
+          const { error } = await supabaseClient.from("almacen").update(payload).eq("id", Number(editId));
+          if (error) {
+            showToast("Error actualizando en Supabase: " + error.message, "warning");
+            return;
+          }
+          showToast(`Repuesto "${descripcion}" actualizado en Supabase`, "success");
+        } else {
+          const { error } = await supabaseClient.from("almacen").insert([payload]);
+          if (error) {
+            showToast("Error guardando en Supabase: " + error.message, "warning");
+            return;
+          }
+          showToast(`Nuevo repuesto "${descripcion}" guardado en Supabase`, "success");
         }
+        await syncFromSupabase(false);
       } else {
-        const newId = state.almacen.reduce((max, a) => Math.max(max, a.id), 0) + 1;
-        state.almacen.push({ id: newId, descripcion, compatibilidad, und, stock, pCompra, pVenta, detalles, observacion });
-        showToast(`Nuevo repuesto "${descripcion}" agregado al almacén`, "success");
+        if (editId) {
+          const idx = state.almacen.findIndex(a => a.id === Number(editId));
+          if (idx !== -1) state.almacen[idx] = { ...state.almacen[idx], descripcion, compatibilidad, und, stock, pCompra, pVenta, detalles, observacion };
+        } else {
+          const newId = state.almacen.reduce((max, a) => Math.max(max, a.id), 0) + 1;
+          state.almacen.push({ id: newId, descripcion, compatibilidad, und, stock, pCompra, pVenta, detalles, observacion });
+        }
+        saveLocalBackup();
+        renderAll();
       }
 
-      saveState();
       closeProductModal();
-      renderAll();
     }
 
     // ============================================================================
-    // 10. VISTA 6: CLIENTES (CON ALERTA DE DEUDA EN EL ENCABEZADO)
+    // 10. VISTA 6: CLIENTES (GUARDADO EN TABLA `clientes` DE SUPABASE)
     // ============================================================================
     function renderClientesView() {
       const debtMap = getClientDebtMap();
       const clientsWithDebt = Object.values(debtMap).filter(d => d.saldo > 0 || d.pendingCount > 0);
       const totalDebtAll = clientsWithDebt.reduce((s, d) => s + d.saldo, 0);
 
-      // Renderizar el Banner de Deudas en el Encabezado de Clientes
       const banner = document.getElementById("clientes-header-debt-banner");
       if (clientsWithDebt.length === 0) {
         banner.innerHTML = `
           <div class="flex items-center gap-3 text-emerald-800 text-xs">
             <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
             <div>
-              <strong class="block text-sm">Todos los clientes frecuentes están al día</strong>
-              <span>No existen deudas ni saldos pendientes por cancelar en este momento.</span>
+              <strong class="block text-sm">Ningún cliente mantiene deuda pendiente</strong>
+              <span>Cuando registres ventas con estado "Por Cancelar", aparecerán automáticamente aquí en el encabezado.</span>
             </div>
           </div>
         `;
@@ -3303,7 +3471,7 @@
               </div>
               <div>
                 <h2 class="text-sm font-bold text-gray-900">Alerta de Clientes con Deuda Pendiente ("Por Cancelar")</h2>
-                <p class="text-xs text-amber-900">Actualmente hay <strong>${clientsWithDebt.length} cliente(s)</strong> que mantienen saldo pendiente de pago.</p>
+                <p class="text-xs text-amber-900">Actualmente hay <strong>${clientsWithDebt.length} cliente(s)</strong> con saldo pendiente de pago.</p>
               </div>
             </div>
             <div class="text-right">
@@ -3315,7 +3483,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mt-3.5">
             ${clientsWithDebt.map(d => {
               const cliObj = state.clientes.find(c => c.codigo.toUpperCase() === d.codigo);
-              const nombre = cliObj ? cliObj.nombre : "Cliente Registrado";
+              const nombre = cliObj ? (cliObj.nombre || cliObj.telefono) : "Cliente Registrado";
               const origen = cliObj ? cliObj.origen : "OTROS";
               return `
                 <div onclick="jumpToClientSales('${d.codigo}')" class="bg-white border border-amber-200 hover:border-amber-400 rounded-lg p-3 flex items-center justify-between cursor-pointer transition shadow-2xs">
@@ -3324,7 +3492,7 @@
                     <div class="text-[11px] text-gray-600 truncate max-w-[160px]">${nombre}</div>
                   </div>
                   <div class="text-right">
-                    <div class="text-xs font-bold text-red-600">${d.saldo > 0 ? formatMoney(d.saldo) : 'Fijar precio'}</div>
+                    <div class="text-xs font-bold text-red-600">${formatMoney(d.saldo)}</div>
                     <div class="text-[10px] text-amber-700">${d.pendingCount} reg. pendiente(s)</div>
                   </div>
                 </div>
@@ -3337,36 +3505,46 @@
       document.getElementById("clientes-count-label").textContent = `${state.clientes.length} clientes frecuentes`;
 
       const tbody = document.getElementById("clientes-directory-tbody");
-      tbody.innerHTML = state.clientes.map(c => {
-        const dInfo = debtMap[c.codigo.toUpperCase()] || { totalComprado: 0, saldo: 0, pendingCount: 0 };
-        const hasDebt = dInfo.saldo > 0 || dInfo.pendingCount > 0;
-
-        return `
-          <tr class="hover:bg-gray-50 transition">
-            <td class="py-3 px-4 font-bold text-gray-900">${c.codigo}</td>
-            <td class="py-3 px-4 text-gray-800">${c.nombre}</td>
-            <td class="py-3 px-4">
-              <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px] font-semibold">${c.origen}</span>
-            </td>
-            <td class="py-3 px-4 text-gray-500">${c.telefono || "-"}</td>
-            <td class="py-3 px-4 text-right font-medium text-gray-800">${formatMoney(dInfo.totalComprado)}</td>
-            <td class="py-3 px-4 text-right">
-              ${hasDebt
-                ? `<span class="px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 font-bold text-[11px]">${dInfo.saldo > 0 ? formatMoney(dInfo.saldo) : 'Precio pendiente'}</span>`
-                : `<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px]">Sin deuda</span>`
-              }
-            </td>
-            <td class="py-3 px-4 text-right whitespace-nowrap">
-              <button onclick="jumpToClientSales('${c.codigo}')" class="text-xs text-blue-700 hover:underline mr-2">Ver historial</button>
-              <button onclick="deleteClient(${c.id})" class="text-xs text-gray-400 hover:text-red-600">Eliminar</button>
+      if (state.clientes.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="py-10 text-center text-gray-400 text-xs">
+              Aún no has agregado clientes frecuentes. Usa el formulario de la izquierda para guardar tus primeros clientes en Supabase.
             </td>
           </tr>
         `;
-      }).join("");
+      } else {
+        tbody.innerHTML = state.clientes.map(c => {
+          const dInfo = debtMap[c.codigo.toUpperCase()] || { totalComprado: 0, saldo: 0, pendingCount: 0 };
+          const hasDebt = dInfo.saldo > 0 || dInfo.pendingCount > 0;
+
+          return `
+            <tr class="hover:bg-gray-50 transition">
+              <td class="py-3 px-4 font-bold text-gray-900">${c.codigo}</td>
+              <td class="py-3 px-4 text-gray-800">${c.nombre || c.telefono || "-"}</td>
+              <td class="py-3 px-4">
+                <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px] font-semibold">${c.origen}</span>
+              </td>
+              <td class="py-3 px-4 text-gray-500">${c.telefono || "-"}</td>
+              <td class="py-3 px-4 text-right font-medium text-gray-800">${formatMoney(dInfo.totalComprado)}</td>
+              <td class="py-3 px-4 text-right">
+                ${hasDebt
+                  ? `<span class="px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 font-bold text-[11px]">${formatMoney(dInfo.saldo)}</span>`
+                  : `<span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px]">Sin deuda</span>`
+                }
+              </td>
+              <td class="py-3 px-4 text-right whitespace-nowrap">
+                <button onclick="jumpToClientSales('${c.codigo}')" class="text-xs text-blue-700 hover:underline mr-2">Ver historial</button>
+                <button onclick="deleteClient(${c.id})" class="text-xs text-gray-400 hover:text-red-600">Eliminar</button>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      }
       lucide.createIcons();
     }
 
-    function handleAddClient(e) {
+    async function handleAddClient(e) {
       e.preventDefault();
       const codigo = document.getElementById("new-client-codigo").value.trim().toUpperCase();
       const origen = document.getElementById("new-client-origen").value.trim().toUpperCase();
@@ -3374,26 +3552,42 @@
       const telefono = document.getElementById("new-client-telefono").value.trim();
       if (!codigo) return;
 
-      if (state.clientes.some(c => c.codigo.toUpperCase() === codigo)) {
-        showToast(`El código de cliente ${codigo} ya existe`, "warning");
-        return;
+      const infoContacto = telefono ? `${nombre} (${telefono})` : nombre;
+
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from("clientes").insert([{
+          cod: codigo,
+          origen: origen,
+          telefono: infoContacto
+        }]);
+        if (error) {
+          showToast("Error guardando cliente en Supabase: " + error.message, "warning");
+          return;
+        }
+        await syncFromSupabase(false);
+      } else {
+        const newId = state.clientes.reduce((max, c) => Math.max(max, c.id), 0) + 1;
+        state.clientes.push({ id: newId, codigo, origen, nombre: infoContacto, telefono: infoContacto });
+        saveLocalBackup();
+        renderAll();
       }
 
-      const newId = state.clientes.reduce((max, c) => Math.max(max, c.id), 0) + 1;
-      state.clientes.push({ id: newId, codigo, origen, nombre, telefono });
       document.getElementById("new-client-codigo").value = "";
       document.getElementById("new-client-origen").value = "";
       document.getElementById("new-client-nombre").value = "";
       document.getElementById("new-client-telefono").value = "";
-      saveState();
-      renderAll();
-      showToast(`Cliente frecuente ${codigo} agregado exitosamente`, "success");
+      showToast(`Cliente frecuente ${codigo} guardado en Supabase`, "success");
     }
 
-    function deleteClient(id) {
-      state.clientes = state.clientes.filter(c => c.id !== id);
-      saveState();
-      renderAll();
+    async function deleteClient(id) {
+      if (supabaseClient) {
+        await supabaseClient.from("clientes").delete().eq("id", id);
+        await syncFromSupabase(false);
+      } else {
+        state.clientes = state.clientes.filter(c => c.id !== id);
+        saveLocalBackup();
+        renderAll();
+      }
       showToast("Cliente eliminado del directorio", "info");
     }
 
@@ -3420,7 +3614,6 @@
       const u = document.getElementById("sql-gate-user").value.trim();
       const p = document.getElementById("sql-gate-pass").value;
 
-      // Verifica contra el usuario Admin (1903) o WILLOSIRIS (74969686) o cualquier usuario con permiso acceso_sql
       const validAdmin = state.usuarios.find(
         usr => usr.username.toLowerCase() === u.toLowerCase() && usr.password === p &&
         (usr.permissions.acceso_sql || usr.username.toLowerCase() === "admin" || usr.username.toUpperCase() === "WILLOSIRIS")
@@ -3438,16 +3631,12 @@
     }
 
     function generateSQLScript() {
-      const sql = `-- ====================================================================
--- SCRIPT SQL PARA SUPABASE: ANAROSA REPUESTOS Y ACCESORIOS
--- Incluye tablas: almacen, clientes, ventas y usuarios
--- ====================================================================
-
-CREATE TABLE IF NOT EXISTS public.almacen (
+      const sql = `-- SCRIPT SQL EN BLANCO PARA SUPABASE (ANAROSA)
+CREATE TABLE IF NOT EXISTS almacen (
   id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
   descripcion TEXT NOT NULL,
   compatibilidad TEXT DEFAULT 'GENERAL',
-  stock INTEGER DEFAULT 0,
+  stock INT NOT NULL DEFAULT 0,
   und TEXT DEFAULT 'Unidad',
   p_compra NUMERIC(10,2) DEFAULT 0,
   p_venta NUMERIC(10,2) DEFAULT 0,
@@ -3456,32 +3645,52 @@ CREATE TABLE IF NOT EXISTS public.almacen (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.clientes (
+CREATE TABLE IF NOT EXISTS clientes (
   id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-  codigo TEXT NOT NULL UNIQUE,
   origen TEXT NOT NULL,
-  nombre TEXT DEFAULT '',
-  telefono TEXT DEFAULT ''
+  cod TEXT NOT NULL UNIQUE,
+  telefono TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.ventas (
+CREATE TABLE IF NOT EXISTS ventas (
   id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-  fecha DATE NOT NULL DEFAULT CURRENT_DATE,
-  cliente TEXT NOT NULL,
-  cliente_nombre TEXT DEFAULT '',
+  ticket TEXT,
   descripcion TEXT NOT NULL,
-  cantidad INTEGER DEFAULT 1,
-  precio_unit NUMERIC(10,2) DEFAULT 0,
-  total NUMERIC(10,2) DEFAULT 0,
-  pagado NUMERIC(10,2) DEFAULT 0,
-  estado TEXT DEFAULT 'Por Cancelar',
+  cantidad NUMERIC(10,2) NOT NULL DEFAULT 1,
+  precio_uni NUMERIC(10,2) NOT NULL DEFAULT 0,
+  precio_total NUMERIC(10,2) NOT NULL DEFAULT 0,
+  pagado NUMERIC(10,2) NOT NULL DEFAULT 0,
+  fecha DATE DEFAULT CURRENT_DATE,
+  cliente TEXT NOT NULL,
+  origen TEXT DEFAULT '',
+  estado TEXT NOT NULL DEFAULT 'Por Cancelar',
   observacion TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO public.almacen (descripcion, compatibilidad, stock, und, p_compra, p_venta, detalles, observacion) VALUES
-${state.almacen.map(a => `  ('${a.descripcion.replace(/'/g, "''")}', '${a.compatibilidad}', ${a.stock}, '${a.und}', ${a.pCompra}, ${a.pVenta}, '${(a.detalles || "").replace(/'/g, "''")}', '${(a.observacion || "").replace(/'/g, "''")}')`).join(",\n")};
-`;
+CREATE TABLE IF NOT EXISTS compras (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  repuesto_id BIGINT REFERENCES almacen(id) ON DELETE SET NULL,
+  repuesto_nombre TEXT NOT NULL,
+  cantidad INT NOT NULL DEFAULT 1,
+  costo_uni NUMERIC(10,2) NOT NULL DEFAULT 0,
+  total NUMERIC(10,2) NOT NULL DEFAULT 0,
+  fecha DATE DEFAULT CURRENT_DATE,
+  proveedor TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS usuarios (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  password TEXT NOT NULL,
+  rol TEXT NOT NULL,
+  perm_delete_sales BOOLEAN DEFAULT FALSE,
+  perm_edit_prices BOOLEAN DEFAULT FALSE,
+  perm_sql BOOLEAN DEFAULT FALSE,
+  perm_users BOOLEAN DEFAULT FALSE
+);`;
       const area = document.getElementById("supabase-sql-code");
       if (area) area.value = sql;
     }
@@ -3501,16 +3710,13 @@ ${state.almacen.map(a => `  ('${a.descripcion.replace(/'/g, "''")}', '${a.compat
       const url = document.getElementById("sb-url-input").value.trim();
       const key = document.getElementById("sb-key-input").value.trim();
       if (!url || !key) {
-        showToast("Completa el Project URL y el Anon Key", "warning");
+        showToast("Completa el Project URL y el Publishable Key", "warning");
         return;
       }
       localStorage.setItem("anarosa_sb_url", url);
       localStorage.setItem("anarosa_sb_key", key);
-      showToast("Credenciales guardadas", "success");
-    }
-
-    async function pushLocalToSupabase() {
-      showToast("Sincronizando datos con Supabase...", "info");
+      initSupabaseClient();
+      await syncFromSupabase(true);
     }
 
     // ============================================================================
@@ -3545,12 +3751,23 @@ ${state.almacen.map(a => `  ('${a.descripcion.replace(/'/g, "''")}', '${a.compat
       `).join("");
     }
 
-    function toggleUserPerm(userId, permKey, val) {
+    async function toggleUserPerm(userId, permKey, val) {
       const usr = state.usuarios.find(u => u.id === userId);
       if (!usr) return;
       usr.permissions[permKey] = Boolean(val);
-      saveState();
-      showToast(`Permiso "${permKey}" actualizado para ${usr.username}`, "success");
+
+      if (supabaseClient) {
+        await supabaseClient.from("usuarios").update({
+          perm_delete_sales: usr.permissions.eliminar_ventas,
+          perm_edit_prices: usr.permissions.modificar_precios,
+          perm_sql: usr.permissions.acceso_sql,
+          perm_users: usr.permissions.gestionar_usuarios
+        }).eq("id", userId);
+        await syncFromSupabase(false);
+      } else {
+        saveLocalBackup();
+      }
+      showToast(`Permisos actualizados en Supabase para ${usr.username}`, "success");
     }
 
     function loadUserIntoForm(userId) {
@@ -3579,7 +3796,7 @@ ${state.almacen.map(a => `  ('${a.descripcion.replace(/'/g, "''")}', '${a.compat
       document.getElementById("perm-gestionar-usuarios").checked = false;
     }
 
-    function handleSaveUser(e) {
+    async function handleSaveUser(e) {
       e.preventDefault();
       const editId = document.getElementById("edit-user-id").value;
       const username = document.getElementById("user-form-username").value.trim();
@@ -3592,28 +3809,50 @@ ${state.almacen.map(a => `  ('${a.descripcion.replace(/'/g, "''")}', '${a.compat
         gestionar_usuarios: document.getElementById("perm-gestionar-usuarios").checked
       };
 
-      if (editId) {
-        const idx = state.usuarios.findIndex(u => u.id === Number(editId));
-        if (idx !== -1) {
-          state.usuarios[idx] = { ...state.usuarios[idx], username, password, role, permissions };
-          showToast(`Usuario ${username} y su contraseña actualizados`, "success");
+      const dbPayload = {
+        username,
+        password,
+        rol: role,
+        perm_delete_sales: permissions.eliminar_ventas,
+        perm_edit_prices: permissions.modificar_precios,
+        perm_sql: permissions.acceso_sql,
+        perm_users: permissions.gestionar_usuarios
+      };
+
+      if (supabaseClient) {
+        if (editId) {
+          await supabaseClient.from("usuarios").update(dbPayload).eq("id", Number(editId));
+          showToast(`Usuario ${username} actualizado en Supabase`, "success");
+        } else {
+          await supabaseClient.from("usuarios").insert([dbPayload]);
+          showToast(`Nuevo usuario ${username} guardado en Supabase`, "success");
         }
+        await syncFromSupabase(false);
       } else {
-        const newId = state.usuarios.reduce((max, u) => Math.max(max, u.id), 0) + 1;
-        state.usuarios.push({ id: newId, username, password, role, permissions });
-        showToast(`Nuevo usuario ${username} creado`, "success");
+        if (editId) {
+          const idx = state.usuarios.findIndex(u => u.id === Number(editId));
+          if (idx !== -1) state.usuarios[idx] = { ...state.usuarios[idx], username, password, role, permissions };
+        } else {
+          const newId = state.usuarios.reduce((max, u) => Math.max(max, u.id), 0) + 1;
+          state.usuarios.push({ id: newId, username, password, role, permissions });
+        }
+        saveLocalBackup();
       }
 
       resetUserForm();
-      saveState();
       renderUsuariosView();
     }
 
-    function deleteUser(userId) {
+    async function deleteUser(userId) {
       const usr = state.usuarios.find(u => u.id === userId);
       if (!usr || usr.username.toUpperCase() === "WILLOSIRIS") return;
-      state.usuarios = state.usuarios.filter(u => u.id !== userId);
-      saveState();
+      if (supabaseClient) {
+        await supabaseClient.from("usuarios").delete().eq("id", userId);
+        await syncFromSupabase(false);
+      } else {
+        state.usuarios = state.usuarios.filter(u => u.id !== userId);
+        saveLocalBackup();
+      }
       renderUsuariosView();
       showToast(`Usuario ${usr.username} eliminado`, "info");
     }
@@ -3622,10 +3861,10 @@ ${state.almacen.map(a => `  ('${a.descripcion.replace(/'/g, "''")}', '${a.compat
     // 13. EXPORTAR CSV Y RENDERIZADO GENERAL
     // ============================================================================
     function exportAllToCSV() {
-      let csv = "Nro,Fecha,Cliente,Nombre,Repuesto,Cantidad,Precio Unitario,Total,Pagado,Saldo,Estado,Observacion\n";
+      let csv = "Nro,Fecha,Cliente,Origen,Repuesto,Cantidad,Precio Unitario,Total,Pagado,Saldo,Estado,Observacion\n";
       state.ventas.forEach(v => {
         const saldo = Math.max(0, (Number(v.total) || 0) - (Number(v.pagado) || 0));
-        csv += `${v.id},${v.fecha},"${v.cliente}","${v.clienteNombre || ''}","${v.descripcion}",${v.cantidad},${v.precioUnit},${v.total},${v.pagado},${saldo},"${v.estado}","${(v.observacion || "").replace(/"/g, '""')}"\n`;
+        csv += `${v.id},${v.fecha},"${v.cliente}","${v.origen || ''}","${v.descripcion}",${v.cantidad},${v.precioUnit},${v.total},${v.pagado},${saldo},"${v.estado}","${(v.observacion || "").replace(/"/g, '""')}"\n`;
       });
 
       const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -3653,9 +3892,11 @@ ${state.almacen.map(a => `  ('${a.descripcion.replace(/'/g, "''")}', '${a.compat
       lucide.createIcons();
     }
 
-    window.onload = function () {
-      loadState();
+    window.onload = async function () {
+      loadLocalBackup();
+      initSupabaseClient();
       initLoginScreen();
+      await syncFromSupabase(false);
       renderAll();
     };
   </script>
