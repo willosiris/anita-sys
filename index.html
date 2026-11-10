@@ -199,16 +199,16 @@
   </div>
 
   <!-- =========================================================================
-       MODAL DE BLOQUEO POR INACTIVIDAD (10 MINUTOS)
+       MODAL DE BLOQUEO POR INACTIVIDAD (15 MINUTOS)
        ========================================================================= -->
-  <div id="inactivity-lock-screen" class="fixed inset-0 bg-[#101929]/95 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div id="inactivity-lock-screen" class="fixed inset-0 bg-[#101929]/95 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 text-center fade-in">
       <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3">
         <i data-lucide="clock" class="w-6 h-6"></i>
       </div>
       <h3 class="text-base font-bold text-gray-900">Sesión Bloqueada por Inactividad</h3>
       <p class="text-xs text-gray-500 mt-1">
-        Transcurrieron 10 minutos sin actividad. Ingresa la contraseña de <strong id="lock-screen-username" class="text-gray-900">ANAROSA</strong> para continuar trabajando.
+        Transcurrieron 15 minutos sin actividad. Ingresa la contraseña de <strong id="lock-screen-username" class="text-gray-900">ANAROSA</strong> para continuar trabajando.
       </p>
 
       <div id="unlock-error-msg" class="hidden mt-3 p-2 rounded bg-red-50 text-red-700 text-xs">
@@ -314,7 +314,8 @@
         </button>
 
         <div class="pt-2 mt-2 border-t border-slate-800/80 space-y-1">
-          <button onclick="switchTab('supabase')" id="nav-supabase" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition-all text-left">
+          <!-- Apartado exclusivo Supabase SQL solo para Administrador -->
+          <button onclick="switchTab('supabase')" id="nav-supabase" class="w-full hidden items-center gap-3 px-3.5 py-2.5 rounded-lg transition-all text-left">
             <i data-lucide="database" class="w-4 h-4 flex-shrink-0"></i>
             <div class="flex-1 flex items-center justify-between">
               <span>Supabase SQL</span>
@@ -370,11 +371,11 @@
         </button>
       </div>
 
-      <!-- Indicador de Sesión Activa, Cronómetro de Inactividad (10m) y Botón Salir -->
+      <!-- Indicador de Sesión Activa, Cronómetro de Inactividad (15m) y Botón Salir -->
       <div class="flex items-center gap-3">
-        <div class="hidden sm:flex items-center gap-1.5 text-[11px] text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg" title="La sesión se bloqueará automáticamente tras 10 minutos de inactividad">
+        <div class="hidden sm:flex items-center gap-1.5 text-[11px] text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg" title="La sesión se bloqueará automáticamente tras 15 minutos de inactividad">
           <i data-lucide="timer" class="w-3.5 h-3.5 text-gray-400"></i>
-          <span>Auto-bloqueo: <strong id="inactivity-countdown-display" class="font-mono text-gray-800">10:00</strong></span>
+          <span>Auto-bloqueo: <strong id="inactivity-countdown-display" class="font-mono text-gray-800">15:00</strong></span>
         </div>
 
         <div class="flex items-center gap-2 pl-2 border-l border-gray-200">
@@ -541,29 +542,32 @@
         <!-- Barra de búsqueda inteligente y filtros por defecto -->
         <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
           <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <div class="md:col-span-6">
+            <div class="md:col-span-4">
               <label class="block text-xs font-semibold text-gray-700 mb-1">Buscador rápido de repuestos</label>
               <div class="relative">
-                <input type="text" id="buscar-query" oninput="renderBuscarCatalog()" placeholder="Escribe nombre del repuesto, código, marca (Volkswagen, Renault), detalle..." class="input-clean w-full pl-9 text-xs py-2.5" />
+                <input type="text" id="buscar-query" oninput="renderBuscarCatalog()" placeholder="Nombre de repuesto, detalle o descripción..." class="input-clean w-full pl-9 text-xs py-2.5" />
                 <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-2.5"></i>
               </div>
             </div>
             <div class="md:col-span-3">
-              <label class="block text-xs text-gray-600 mb-1">Marca / Compatibilidad</label>
-              <select id="buscar-marca" onchange="renderBuscarCatalog()" class="input-clean w-full text-xs py-2">
-                <option value="ALL">Todas las marcas</option>
-                <option value="VOLKSWAGEN">VOLKSWAGEN</option>
-                <option value="RENAULT">RENAULT</option>
-                <option value="RENAULT MASTER">RENAULT MASTER</option>
-                <option value="MULTIMARCA">MULTIMARCA / UNIVERSAL</option>
-              </select>
+              <label class="block text-xs font-semibold text-gray-700 mb-1">Filtrar por Código</label>
+              <div class="relative">
+                <input type="text" id="buscar-codigo-filter" oninput="this.value = this.value.toUpperCase(); renderBuscarCatalog();" placeholder="Ej. COD0000001" class="input-clean w-full pl-9 text-xs py-2.5 uppercase font-mono font-semibold" />
+                <i data-lucide="hash" class="w-4 h-4 text-gray-400 absolute left-3 top-2.5"></i>
+              </div>
             </div>
             <div class="md:col-span-3">
-              <label class="block text-xs text-gray-600 mb-1">Disponibilidad de Stock</label>
+              <label class="block text-xs text-gray-600 mb-1">Marca / Compatibilidad</label>
+              <select id="buscar-marca" onchange="renderBuscarCatalog()" class="input-clean w-full text-xs py-2 font-medium">
+                <option value="ALL">Todas las marcas</option>
+              </select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs text-gray-600 mb-1">Disponibilidad</label>
               <select id="buscar-stock-filter" onchange="renderBuscarCatalog()" class="input-clean w-full text-xs py-2">
-                <option value="ALL">Todos los niveles de stock</option>
-                <option value="NORMAL">Stock Óptimo (> 5 und.)</option>
-                <option value="LOW">Stock Bajo / Crítico (≤ 5 und.)</option>
+                <option value="ALL">Todos los niveles</option>
+                <option value="NORMAL">Óptimo (> 5 und.)</option>
+                <option value="LOW">Bajo (≤ 5 und.)</option>
               </select>
             </div>
           </div>
@@ -585,11 +589,11 @@
             <p class="text-xs text-gray-500 mt-0.5">Busca y selecciona uno o varios productos, ajusta cantidades, selecciona un cliente frecuente o "OTROS" y registra adelantos.</p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="clearPosCart()" class="px-3.5 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs text-gray-600 flex items-center gap-1.5">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-              Limpiar Carrito
+            <button onclick="clearPosForm(false)" class="px-3.5 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs text-gray-700 font-medium flex items-center gap-1.5 shadow-2xs transition" title="Limpiar carrito, datos de cliente y reiniciar formulario">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              Limpiar Todo
             </button>
-            <button onclick="switchTab('historial-ventas')" class="px-3.5 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs text-gray-800 font-medium flex items-center gap-1.5">
+            <button onclick="switchTab('historial-ventas')" class="px-3.5 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-xs text-gray-800 font-medium flex items-center gap-1.5 shadow-2xs transition">
               <i data-lucide="history" class="w-3.5 h-3.5"></i>
               Ver Historial de Ventas
             </button>
@@ -664,7 +668,7 @@
                     autocomplete="off"
                   />
                   <i data-lucide="user-check" class="w-4 h-4 text-gray-400 absolute left-3 top-2.5"></i>
-                  <button type="button" onclick="togglePosClientDropdown()" class="absolute right-2 top-2 text-gray-400 hover:text-gray-700 p-0.5">
+                  <button type="button" id="pos-client-dropdown-btn" onclick="togglePosClientDropdown(event)" class="absolute right-2 top-2 text-gray-500 hover:text-gray-900 p-0.5 rounded transition" title="Desplegar lista de clientes registrados">
                     <i data-lucide="chevron-down" class="w-4 h-4"></i>
                   </button>
                 </div>
@@ -694,7 +698,7 @@
                 <div class="col-span-2">
                   <div class="flex items-center justify-between mb-1">
                     <label class="text-[11px] text-gray-600">Nombre del Cliente / Descripción</label>
-                    <span id="pos-manual-mode-badge" class="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600">Autorellenado (Cliente Frecuente)</span>
+                    <span id="pos-manual-mode-badge" class="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-500">Pendiente de selección</span>
                   </div>
                   <input type="text" id="pos-client-nombre" readonly class="input-clean w-full text-xs" placeholder="Nombre completo o referencia del cliente" />
                 </div>
@@ -706,7 +710,7 @@
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="block text-gray-700 font-medium mb-1">Fecha de Venta</label>
-                  <input type="date" id="pos-fecha" value="2026-11-09" class="input-clean w-full text-xs" />
+                  <input type="date" id="pos-fecha" class="input-clean w-full text-xs font-medium" />
                 </div>
                 <div>
                   <label class="block text-gray-700 font-medium mb-1">¿Dará adelanto o pago?</label>
@@ -769,20 +773,22 @@
             <p class="text-xs text-gray-500 mt-0.5">Registro completo de todas las ventas realizadas, control de saldos pendientes e impresión de reportes.</p>
           </div>
 
-          <!-- Panel de Impresión de Reportes (Semanal, Mensual, Anual) -->
+          <!-- Panel de Impresión de Reportes (Día, Semanal, Mensual, Anual) -->
           <div class="flex flex-wrap items-center gap-2 bg-white border border-gray-200 rounded-xl p-2 shadow-sm">
             <span class="text-xs font-semibold text-gray-700 pl-2 flex items-center gap-1">
               <i data-lucide="printer" class="w-3.5 h-3.5"></i>
               Reporte:
             </span>
-            <select id="report-period-type" onchange="onReportTypeChange()" class="input-clean text-xs py-1.5 px-2.5">
-              <option value="MENSUAL">Mensual</option>
+            <select id="report-period-type" onchange="onReportTypeChange()" class="input-clean text-xs py-1.5 px-2.5 font-medium">
+              <option value="DIA">Reporte del Día / Fecha específica</option>
+              <option value="MENSUAL" selected>Mensual</option>
               <option value="SEMANAL">Semanal (Últimos 7 días de corte)</option>
               <option value="ANUAL">Anual (Todo el Año)</option>
               <option value="FILTRO_ACTUAL">Según filtro actual en pantalla</option>
             </select>
-            <input type="month" id="report-month-picker" value="2026-09" class="input-clean text-xs py-1 px-2" />
-            <button onclick="openPrintReportModal()" class="bg-[#101929] hover:bg-black text-white text-xs font-medium px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+            <input type="date" id="report-day-picker" class="input-clean text-xs py-1 px-2 hidden font-medium" />
+            <input type="month" id="report-month-picker" class="input-clean text-xs py-1 px-2 font-medium" />
+            <button onclick="openPrintReportModal()" class="bg-[#101929] hover:bg-black text-white text-xs font-medium px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5 shadow-2xs">
               <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
               <span>Imprimir Reporte</span>
             </button>
@@ -1218,6 +1224,15 @@
         <input type="hidden" id="prod-edit-id" value="" />
 
         <div>
+          <label class="block text-gray-700 font-semibold mb-1">Código del Repuesto / Producto *</label>
+          <div class="relative">
+            <input type="text" id="prod-codigo" placeholder="Ej. COD0000001" class="input-clean w-full text-xs uppercase font-mono font-bold pl-8" required oninput="this.value = this.value.toUpperCase()" />
+            <i data-lucide="hash" class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5"></i>
+          </div>
+          <span class="text-[10px] text-gray-400 mt-0.5 block">Código correlativo autogenerado o disponible. Digitable solo en mayúsculas.</span>
+        </div>
+
+        <div>
           <label class="block text-gray-700 font-medium mb-1">Descripción del Repuesto *</label>
           <input type="text" id="prod-descripcion" placeholder="Ej. FILTRO DE PETROLEO P/VOLKSWAGEN" class="input-clean w-full text-xs uppercase font-bold" required />
         </div>
@@ -1225,7 +1240,7 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-gray-700 font-medium mb-1">Compatibilidad / Marca *</label>
-            <input type="text" id="prod-compatibilidad" placeholder="Ej. VOLKSWAGEN" class="input-clean w-full text-xs uppercase" required />
+            <input type="text" id="prod-compatibilidad" value="UNIVERSAL" placeholder="Ej. UNIVERSAL, VOLKSWAGEN..." class="input-clean w-full text-xs uppercase" required />
           </div>
           <div>
             <label class="block text-gray-700 font-medium mb-1">Unidad de Medida</label>
@@ -1335,7 +1350,7 @@
   <!-- =========================================================================
        MODAL DE VISTA PREVIA E IMPRESIÓN DE REPORTE (SEMANAL, MENSUAL, ANUAL)
        ========================================================================= -->
-  <div id="modal-print-report" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4 overflow-y-auto">
+  <div id="modal-print-report" class="fixed inset-0 bg-black/60 z-[60] hidden items-center justify-center p-4 overflow-y-auto">
     <div class="bg-white rounded-xl max-w-4xl w-full p-6 shadow-2xl border border-gray-200 my-auto max-h-[92vh] flex flex-col">
       <div class="flex items-center justify-between pb-4 border-b border-gray-200 no-print">
         <div>
@@ -1360,8 +1375,262 @@
     </div>
   </div>
 
+  <!-- =========================================================================
+       MODAL: VENTA REGISTRADA CON ÉXITO (PASO 1)
+       ========================================================================= -->
+  <div id="modal-venta-exitosa" class="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-50 hidden items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 text-center fade-in">
+      <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3.5">
+        <i data-lucide="check-circle-2" class="w-8 h-8"></i>
+      </div>
+      <h3 class="text-lg font-bold text-gray-900">¡Registro Exitoso!</h3>
+      <p class="text-xs text-gray-500 mt-1">La venta ha sido procesada y guardada correctamente.</p>
+      
+      <div class="bg-gray-50 rounded-xl p-3.5 my-4 border border-gray-100 text-xs text-left space-y-1.5">
+        <div class="flex justify-between text-gray-600"><span>Ticket:</span> <strong id="modal-success-ticket" class="text-gray-900 font-mono">-</strong></div>
+        <div class="flex justify-between text-gray-600"><span>Cliente:</span> <strong id="modal-success-cliente" class="text-gray-900">-</strong></div>
+        <div class="flex justify-between text-gray-600"><span>Total:</span> <strong id="modal-success-total" class="text-gray-900 font-bold">-</strong></div>
+        <div class="flex justify-between text-gray-600"><span>Estado:</span> <span id="modal-success-estado" class="font-semibold">-</span></div>
+      </div>
+
+      <button type="button" onclick="onVentaExitosaOkClick()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+        <i data-lucide="check" class="w-4 h-4"></i>
+        <span>OK</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: ACCIONES POST-VENTA (PASO 2 OPCIONAL)
+       ========================================================================= -->
+  <div id="modal-acciones-venta" class="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-50 hidden items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 fade-in text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
+        <div>
+          <h3 class="text-base font-bold text-gray-900">Acciones de Venta</h3>
+          <p class="text-[11px] text-gray-500">Pasos opcionales disponibles para este registro:</p>
+        </div>
+        <span id="modal-acciones-ticket-badge" class="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 font-mono text-[11px] font-bold">TK-000000</span>
+      </div>
+
+      <div class="space-y-2.5 my-4">
+        <button type="button" onclick="accionPostVenta('pago')" class="w-full p-3 rounded-xl border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/40 flex items-center justify-between transition group text-left">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
+              <i data-lucide="coins" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <div class="font-bold text-gray-900">Registrar un Pago / Adelanto</div>
+              <div class="text-[10px] text-gray-500">Abonar saldo o cancelar la venta en curso</div>
+            </div>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-emerald-600 transition"></i>
+        </button>
+
+        <button type="button" onclick="accionPostVenta('imprimir')" class="w-full p-3 rounded-xl border border-gray-200 hover:border-blue-500 hover:bg-blue-50/40 flex items-center justify-between transition group text-left">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
+              <i data-lucide="printer" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <div class="font-bold text-gray-900">Imprimir Comprobante</div>
+              <div class="text-[10px] text-gray-500">Imprimir ticket oficial de entrega con información completa</div>
+            </div>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition"></i>
+        </button>
+
+        <button type="button" onclick="accionPostVenta('pdf')" class="w-full p-3 rounded-xl border border-gray-200 hover:border-indigo-500 hover:bg-indigo-50/40 flex items-center justify-between transition group text-left">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-800 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
+              <i data-lucide="file-down" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <div class="font-bold text-gray-900">Descargar Documento en PDF</div>
+              <div class="text-[10px] text-gray-500">Guardar comprobante digital en formato PDF</div>
+            </div>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition"></i>
+        </button>
+
+        <button type="button" onclick="accionPostVenta('historial')" class="w-full p-3 rounded-xl border border-gray-200 hover:border-gray-500 hover:bg-gray-50 flex items-center justify-between transition group text-left">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <div class="font-bold text-gray-900">Ver en Historial de Ventas</div>
+              <div class="text-[10px] text-gray-500">Consultar el registro junto a las demás ventas</div>
+            </div>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition"></i>
+        </button>
+      </div>
+
+      <div class="pt-2">
+        <button type="button" onclick="finalizarAccionesVenta()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-xs">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Finalizar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: EDITAR REGISTRO DE VENTA (SOLO ADMINISTRADOR)
+       ========================================================================= -->
+  <div id="modal-editar-venta" class="fixed inset-0 bg-black/60 backdrop-blur-[1px] z-50 hidden items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 fade-in text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div>
+          <h3 class="text-base font-bold text-gray-900">Editar Registro de Venta</h3>
+          <p class="text-[11px] text-gray-500">Modificación exclusiva de Administrador</p>
+        </div>
+        <button onclick="closeEditSaleModal()" class="text-gray-400 hover:text-gray-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleEditSaleSubmit(event)" class="space-y-3.5 mt-4">
+        <input type="hidden" id="edit-sale-id" />
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-gray-700 font-semibold mb-1">Ticket / N° Venta</label>
+            <input type="text" id="edit-sale-ticket" readonly class="input-clean w-full font-mono font-bold bg-gray-100" />
+          </div>
+          <div>
+            <label class="block text-gray-700 font-semibold mb-1">Fecha</label>
+            <input type="date" id="edit-sale-fecha" required class="input-clean w-full" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-gray-700 font-semibold mb-1">Cliente / Código</label>
+            <input type="text" id="edit-sale-cliente" required class="input-clean w-full font-bold uppercase" />
+          </div>
+          <div>
+            <label class="block text-gray-700 font-semibold mb-1">Origen / Referencia</label>
+            <input type="text" id="edit-sale-origen" class="input-clean w-full uppercase" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1">Descripción de Repuestos</label>
+          <textarea id="edit-sale-descripcion" rows="2" required class="input-clean w-full text-xs"></textarea>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-gray-700 font-semibold mb-1">Unidades</label>
+            <input type="number" id="edit-sale-cantidad" min="1" required class="input-clean w-full font-bold" />
+          </div>
+          <div>
+            <label class="block text-gray-700 font-semibold mb-1">Precio Total (S/.)</label>
+            <input type="number" id="edit-sale-total" step="0.01" min="0" required class="input-clean w-full font-bold text-gray-900" />
+          </div>
+          <div>
+            <label class="block text-gray-700 font-semibold mb-1">Pagado (S/.)</label>
+            <input type="number" id="edit-sale-pagado" step="0.01" min="0" required class="input-clean w-full font-bold text-emerald-700" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 font-semibold mb-1">Observaciones</label>
+          <input type="text" id="edit-sale-observacion" class="input-clean w-full" />
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-gray-100">
+          <button type="button" onclick="closeEditSaleModal()" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">Cancelar</button>
+          <button type="submit" class="px-5 py-2 rounded-lg bg-[#101929] hover:bg-black text-white font-medium">Guardar Cambios de Venta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: CONFIRMACIÓN DE ACCIÓN (EDITAR O ELIMINAR CON CUENTA REGRESIVA 5S)
+       ========================================================================= -->
+  <div id="modal-confirmacion-accion" class="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[70] hidden items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 text-center fade-in text-xs">
+      <div id="confirm-icon-box" class="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3.5">
+        <!-- Icono dinámico -->
+      </div>
+      <h3 id="confirm-modal-title" class="text-base font-bold text-gray-900">Confirmar Acción</h3>
+      <p id="confirm-modal-message" class="text-xs text-gray-500 mt-1">¿Estás seguro de realizar esta acción?</p>
+      <div id="confirm-modal-detail" class="my-3 p-2.5 rounded-lg bg-gray-50 border border-gray-100 font-mono text-[11px] text-gray-700 break-words hidden"></div>
+
+      <div class="flex gap-2.5 mt-5">
+        <button type="button" onclick="closeConfirmActionModal()" class="flex-1 px-4 py-2.5 rounded-xl border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium transition">
+          Cancelar
+        </button>
+        <button type="button" id="confirm-modal-action-btn" class="flex-1 px-4 py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-1.5">
+          <span>Continuar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: DETECCIÓN DE PRODUCTO DUPLICADO
+       ========================================================================= -->
+  <div id="modal-duplicado-producto" class="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[70] hidden items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-amber-200 text-center fade-in text-xs">
+      <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      </div>
+      <h3 class="text-base font-bold text-gray-900">Posible Repuesto Duplicado</h3>
+      <p class="text-xs text-gray-600 mt-1">
+        Ya existe un repuesto en Almacén con un código o descripción idéntica:
+      </p>
+      <div id="duplicate-prod-info" class="my-3 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-left space-y-1">
+        <!-- Info del existente -->
+      </div>
+      <p class="text-[11px] text-gray-500 mb-4">
+        Puedes editar el repuesto existente para sumarle stock o modificar la descripción para continuar registrando.
+      </p>
+
+      <div class="flex flex-col sm:flex-row gap-2">
+        <button type="button" onclick="onDuplicateEditExistingProduct()" class="flex-1 bg-[#101929] hover:bg-black text-white py-2.5 px-3 rounded-xl font-medium transition">
+          Editar el Existente
+        </button>
+        <button type="button" onclick="closeDuplicateProductModal()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-2.5 px-3 rounded-xl font-medium transition">
+          Modificar para Continuar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: DETECCIÓN DE CLIENTE DUPLICADO
+       ========================================================================= -->
+  <div id="modal-duplicado-cliente" class="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[70] hidden items-center justify-center p-4 no-print">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-amber-200 text-center fade-in text-xs">
+      <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3">
+        <i data-lucide="users" class="w-6 h-6"></i>
+      </div>
+      <h3 class="text-base font-bold text-gray-900">Cliente Ya Registrado</h3>
+      <p class="text-xs text-gray-600 mt-1">
+        Ya existe un cliente frecuente con este código o descripción:
+      </p>
+      <div id="duplicate-client-info" class="my-3 p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-left space-y-1">
+        <!-- Info del cliente existente -->
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2 mt-4">
+        <button type="button" onclick="onDuplicateJumpToClient()" class="flex-1 bg-[#101929] hover:bg-black text-white py-2.5 px-3 rounded-xl font-medium transition">
+          Ver Historial de Este Cliente
+        </button>
+        <button type="button" onclick="closeDuplicateClientModal()" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-2.5 px-3 rounded-xl font-medium transition">
+          Modificar Código para Continuar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION -->
-  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none no-print"></div>
+  <div id="toast-container" class="fixed bottom-5 right-5 z-[95] flex flex-col gap-2 pointer-events-none no-print"></div>
 
   <script>
     // ============================================================================
@@ -1433,16 +1702,23 @@
     let supabaseClient = null;
     let isSupabaseOnline = false;
 
-    // Variables de Seguridad: Login (3 intentos -> 1 min bloqueo) e Inactividad (10 min)
+    // Variables de Seguridad: Login (3 intentos -> 1 min bloqueo) e Inactividad (15 min)
     let failedLoginAttempts = 0;
     let loginLockoutUntil = 0;
     let loginLockoutInterval = null;
 
-    const INACTIVITY_LIMIT_SECONDS = 600; // 10 minutos
+    const INACTIVITY_LIMIT_SECONDS = 900; // 15 minutos de inactividad
     let inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
     let inactivityInterval = null;
     let isSessionLocked = false;
     let pendingAdminCallback = null;
+
+    // Variables de control de UI para ventas, duplicados y confirmación con cuenta regresiva
+    let lastCreatedSale = null;
+    let pendingConfirmAction = null;
+    let confirmCountdownInterval = null;
+    let duplicatePendingProduct = null;
+    let duplicatePendingClient = null;
 
     function updateSyncStatusBadge(online, textMsg) {
       isSupabaseOnline = online;
@@ -1496,17 +1772,32 @@
 
         if (resAlmacen.error) throw resAlmacen.error;
 
-        state.almacen = (resAlmacen.data || []).map(row => ({
-          id: row.id,
-          descripcion: row.descripcion || "",
-          compatibilidad: row.compatibilidad || "GENERAL",
-          stock: Number(row.stock) || 0,
-          und: row.und || "Unidad",
-          pCompra: Number(row.p_compra) || 0,
-          pVenta: Number(row.p_venta) || 0,
-          detalles: row.detalles || "",
-          observacion: row.observacion || ""
-        }));
+        state.almacen = (resAlmacen.data || []).map(row => {
+          let codigo = row.codigo || "";
+          let detalles = row.detalles || "";
+          if (!codigo && detalles.startsWith("[COD:")) {
+            const match = detalles.match(/^\[COD:\s*([^\]]+)\]\s*/);
+            if (match) {
+              codigo = match[1].trim();
+              detalles = detalles.replace(match[0], "").trim();
+            }
+          }
+          if (!codigo) {
+            codigo = `COD${String(row.id).padStart(7, "0")}`;
+          }
+          return {
+            id: row.id,
+            codigo: codigo,
+            descripcion: row.descripcion || "",
+            compatibilidad: row.compatibilidad || "UNIVERSAL",
+            stock: Number(row.stock) || 0,
+            und: row.und || "Unidad",
+            pCompra: Number(row.p_compra) || 0,
+            pVenta: Number(row.p_venta) || 0,
+            detalles: detalles,
+            observacion: row.observacion || ""
+          };
+        });
 
         if (!resClientes.error && resClientes.data) {
           state.clientes = resClientes.data.map(row => ({
@@ -1727,23 +2018,41 @@
       loginLockoutInterval = setInterval(tick, 1000);
     }
 
-    function loginAsUser(userObj) {
+    function loginAsUser(userObj, isRestored = false) {
       state.currentUser = userObj;
-      state.supabaseGateUnlocked = Boolean(
-        (userObj.permissions && userObj.permissions.acceso_sql) ||
+      const isAdmin = Boolean(
         userObj.username.toUpperCase() === "WILLOSIRIS" ||
-        userObj.username.toLowerCase() === "admin"
+        userObj.username.toLowerCase() === "admin" ||
+        (userObj.permissions && (userObj.permissions.acceso_sql || userObj.permissions.gestionar_usuarios))
       );
+      state.supabaseGateUnlocked = isAdmin;
       state.tempPriceOverride = false;
+
+      // Persistir sesión activa para que no se cierre al refrescar la página (Punto 1)
+      try {
+        localStorage.setItem("anarosa_session_user", JSON.stringify({
+          id: userObj.id,
+          username: userObj.username,
+          role: userObj.role,
+          permissions: userObj.permissions
+        }));
+        if (!isRestored) {
+          localStorage.setItem("anarosa_last_activity", String(Date.now()));
+        }
+      } catch (e) {
+        console.warn("No se pudo guardar la sesión en localStorage", e);
+      }
 
       document.getElementById("login-screen").classList.add("hidden");
       document.getElementById("login-password").value = "";
 
       updateUserUI();
-      startInactivityMonitor();
-      syncFromSupabase(false);
-      switchTab("inicio");
-      showToast(`Bienvenido(a), ${userObj.username} (${userObj.role})`, "success");
+      startInactivityMonitor(isRestored);
+      if (!isRestored) {
+        syncFromSupabase(false);
+        switchTab("inicio");
+        showToast(`Bienvenido(a), ${userObj.username} (${userObj.role})`, "success");
+      }
     }
 
     function updateUserUI() {
@@ -1751,22 +2060,45 @@
       document.getElementById("header-user-badge").textContent = state.currentUser.username;
       document.getElementById("header-role-badge").textContent = state.currentUser.role;
 
+      const isAdmin = Boolean(
+        state.currentUser.username.toUpperCase() === "WILLOSIRIS" ||
+        state.currentUser.username.toLowerCase() === "admin" ||
+        hasPermission("gestionar_usuarios") ||
+        hasPermission("acceso_sql")
+      );
+
+      // Los apartados de Supabase y Usuarios estarán visibles solamente cuando el administrador ingrese
+      const navSupabase = document.getElementById("nav-supabase");
+      if (navSupabase) {
+        if (isAdmin) {
+          navSupabase.classList.remove("hidden");
+          navSupabase.classList.add("flex");
+        } else {
+          navSupabase.classList.add("hidden");
+          navSupabase.classList.remove("flex");
+        }
+      }
+
       const navUsuarios = document.getElementById("nav-usuarios");
-      if (hasPermission("gestionar_usuarios") || state.currentUser.username.toUpperCase() === "WILLOSIRIS") {
-        navUsuarios.classList.remove("hidden");
-        navUsuarios.classList.add("flex");
-      } else {
-        navUsuarios.classList.add("hidden");
-        navUsuarios.classList.remove("flex");
+      if (navUsuarios) {
+        if (isAdmin) {
+          navUsuarios.classList.remove("hidden");
+          navUsuarios.classList.add("flex");
+        } else {
+          navUsuarios.classList.add("hidden");
+          navUsuarios.classList.remove("flex");
+        }
       }
 
       const sqlLockIcon = document.getElementById("nav-sql-lock-icon");
-      if (state.supabaseGateUnlocked || hasPermission("acceso_sql")) {
-        sqlLockIcon.setAttribute("data-lucide", "unlock");
-        sqlLockIcon.className = "w-3.5 h-3.5 text-emerald-400";
-      } else {
-        sqlLockIcon.setAttribute("data-lucide", "lock");
-        sqlLockIcon.className = "w-3.5 h-3.5 text-amber-400";
+      if (sqlLockIcon) {
+        if (state.supabaseGateUnlocked || hasPermission("acceso_sql")) {
+          sqlLockIcon.setAttribute("data-lucide", "unlock");
+          sqlLockIcon.className = "w-3.5 h-3.5 text-emerald-400";
+        } else {
+          sqlLockIcon.setAttribute("data-lucide", "lock");
+          sqlLockIcon.className = "w-3.5 h-3.5 text-amber-400";
+        }
       }
       lucide.createIcons();
     }
@@ -1780,6 +2112,10 @@
     function logoutToLoginScreen() {
       state.currentUser = null;
       isSessionLocked = false;
+      try {
+        localStorage.removeItem("anarosa_session_user");
+        localStorage.removeItem("anarosa_last_activity");
+      } catch (e) {}
       if (inactivityInterval) clearInterval(inactivityInterval);
       document.getElementById("inactivity-lock-screen").classList.add("hidden");
       document.getElementById("inactivity-lock-screen").classList.remove("flex");
@@ -1787,10 +2123,17 @@
       initLoginScreen();
     }
 
-    function startInactivityMonitor() {
-      inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
+    function startInactivityMonitor(keepRemaining = false) {
+      if (!keepRemaining) {
+        inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
+      }
       isSessionLocked = false;
       if (inactivityInterval) clearInterval(inactivityInterval);
+
+      const mInit = String(Math.floor(inactivityRemainingSeconds / 60)).padStart(2, "0");
+      const sInit = String(inactivityRemainingSeconds % 60).padStart(2, "0");
+      const dispInit = document.getElementById("inactivity-countdown-display");
+      if (dispInit) dispInit.textContent = `${mInit}:${sInit}`;
 
       inactivityInterval = setInterval(() => {
         if (!state.currentUser || isSessionLocked) return;
@@ -1809,8 +2152,11 @@
     function resetInactivityTimer() {
       if (!state.currentUser || isSessionLocked) return;
       inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
+      try {
+        localStorage.setItem("anarosa_last_activity", String(Date.now()));
+      } catch (e) {}
       const disp = document.getElementById("inactivity-countdown-display");
-      if (disp) disp.textContent = "10:00";
+      if (disp) disp.textContent = "15:00";
     }
 
     ["mousemove", "keydown", "click", "scroll", "touchstart"].forEach(evt => {
@@ -1837,12 +2183,44 @@
       if (pass === freshUser.password) {
         isSessionLocked = false;
         inactivityRemainingSeconds = INACTIVITY_LIMIT_SECONDS;
+        try {
+          localStorage.setItem("anarosa_last_activity", String(Date.now()));
+        } catch (e) {}
+        const disp = document.getElementById("inactivity-countdown-display");
+        if (disp) disp.textContent = "15:00";
         const lockModal = document.getElementById("inactivity-lock-screen");
         lockModal.classList.add("hidden");
         lockModal.classList.remove("flex");
         showToast("Sesión reanudada correctamente", "success");
       } else {
         document.getElementById("unlock-error-msg").classList.remove("hidden");
+      }
+    }
+
+    function restoreActiveSession() {
+      const savedUserStr = localStorage.getItem("anarosa_session_user");
+      if (!savedUserStr) return false;
+      try {
+        const savedUser = JSON.parse(savedUserStr);
+        const lastActivity = Number(localStorage.getItem("anarosa_last_activity") || Date.now());
+        const elapsedSeconds = Math.floor((Date.now() - lastActivity) / 1000);
+        const savedTab = sessionStorage.getItem("anarosa_active_tab") || "inicio";
+
+        if (elapsedSeconds < INACTIVITY_LIMIT_SECONDS) {
+          inactivityRemainingSeconds = Math.max(1, INACTIVITY_LIMIT_SECONDS - elapsedSeconds);
+          loginAsUser(savedUser, true);
+          switchTab(savedTab);
+          return true;
+        } else {
+          inactivityRemainingSeconds = 0;
+          loginAsUser(savedUser, true);
+          switchTab(savedTab);
+          triggerInactivityLock();
+          return true;
+        }
+      } catch (e) {
+        console.warn("Error restaurando sesión activa:", e);
+        return false;
       }
     }
 
@@ -1897,6 +2275,14 @@
       return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
 
+    function getTodayLocalISO() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
     function showToast(message, type = "info") {
       const container = document.getElementById("toast-container");
       const el = document.createElement("div");
@@ -1925,24 +2311,36 @@
     }
 
     function switchTab(tabName) {
-      if (tabName === "usuarios" && !hasPermission("gestionar_usuarios")) {
-        showToast("El módulo de Usuarios es exclusivo para el administrador WILLOSIRIS", "warning");
+      const isAdmin = Boolean(
+        state.currentUser && (
+          state.currentUser.username.toUpperCase() === "WILLOSIRIS" ||
+          state.currentUser.username.toLowerCase() === "admin" ||
+          hasPermission("gestionar_usuarios") ||
+          hasPermission("acceso_sql")
+        )
+      );
+
+      if ((tabName === "usuarios" || tabName === "supabase") && !isAdmin) {
+        showToast("Este módulo está reservado exclusivamente para el Administrador", "warning");
         return;
       }
 
       state.currentTab = tabName;
+      try {
+        sessionStorage.setItem("anarosa_active_tab", tabName);
+      } catch (e) {}
       const tabs = ["inicio", "buscar", "registrar-venta", "historial-ventas", "almacen", "clientes", "supabase", "usuarios"];
       tabs.forEach(t => {
         const view = document.getElementById(`view-${t}`);
         const navBtn = document.getElementById(`nav-${t}`);
         if (!view || !navBtn) return;
-        const isHiddenUserNav = t === "usuarios" && !hasPermission("gestionar_usuarios");
+        const isHiddenNav = (t === "usuarios" || t === "supabase") && !isAdmin;
         if (t === tabName) {
           view.classList.remove("hidden");
-          navBtn.className = `w-full ${isHiddenUserNav ? 'hidden' : 'flex'} items-center gap-3 px-3.5 py-2.5 rounded-lg bg-white text-[#101929] font-bold shadow-sm transition-all text-left`;
+          navBtn.className = `w-full ${isHiddenNav ? 'hidden' : 'flex'} items-center gap-3 px-3.5 py-2.5 rounded-lg bg-white text-[#101929] font-bold shadow-sm transition-all text-left`;
         } else {
           view.classList.add("hidden");
-          navBtn.className = `w-full ${isHiddenUserNav ? 'hidden' : 'flex'} items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-all text-left`;
+          navBtn.className = `w-full ${isHiddenNav ? 'hidden' : 'flex'} items-center gap-3 px-3.5 py-2.5 rounded-lg text-slate-300 hover:bg-white/5 hover:text-white transition-all text-left`;
         }
       });
 
@@ -1950,7 +2348,67 @@
         document.getElementById("sidebar").classList.add("hidden");
       }
 
+      // Limpiar los apartados al cambiar entre ellos para no contener información reciclada (Regla General)
+      resetTabForms(tabName);
+
       renderAll();
+    }
+
+    function resetTabForms(tabName) {
+      if (tabName === "registrar-venta") {
+        clearPosForm(false);
+      } else if (tabName === "almacen") {
+        const compraSel = document.getElementById("compra-producto-id");
+        if (compraSel) compraSel.value = "";
+        const compraDesc = document.getElementById("compra-descripcion");
+        if (compraDesc) compraDesc.value = "";
+        const compraCant = document.getElementById("compra-cantidad");
+        if (compraCant) compraCant.value = "1";
+        const compraCosto = document.getElementById("compra-costo-unit");
+        if (compraCosto) compraCosto.value = "";
+        const compraFecha = document.getElementById("compra-fecha");
+        if (compraFecha) compraFecha.value = getTodayLocalISO();
+        updateCompraTotalPreview();
+      } else if (tabName === "clientes") {
+        const cod = document.getElementById("new-client-codigo");
+        if (cod) cod.value = "";
+        const ori = document.getElementById("new-client-origen");
+        if (ori) ori.value = "";
+        const nom = document.getElementById("new-client-nombre");
+        if (nom) nom.value = "";
+        const tel = document.getElementById("new-client-telefono");
+        if (tel) tel.value = "";
+      } else if (tabName === "buscar") {
+        const bq = document.getElementById("buscar-query");
+        if (bq) bq.value = "";
+        const bc = document.getElementById("buscar-codigo-filter");
+        if (bc) bc.value = "";
+        const bm = document.getElementById("buscar-marca");
+        if (bm) bm.value = "ALL";
+        const bs = document.getElementById("buscar-stock-filter");
+        if (bs) bs.value = "ALL";
+        populateMarcasFilter();
+      } else if (tabName === "historial-ventas") {
+        const fs = document.getElementById("filter-ventas-search");
+        if (fs) fs.value = "";
+        const fe = document.getElementById("filter-ventas-estado");
+        if (fe) fe.value = "all";
+        const fc = document.getElementById("filter-ventas-cliente");
+        if (fc) fc.value = "all";
+        const fp = document.getElementById("filter-ventas-producto");
+        if (fp) fp.value = "all";
+        const dayPicker = document.getElementById("report-day-picker");
+        if (dayPicker) dayPicker.value = getTodayLocalISO();
+        const monthPicker = document.getElementById("report-month-picker");
+        if (monthPicker) monthPicker.value = getTodayLocalISO().slice(0, 7);
+      } else if (tabName === "usuarios") {
+        if (typeof resetUserForm === "function") resetUserForm();
+      } else if (tabName === "supabase") {
+        const sqlU = document.getElementById("sql-gate-user");
+        const sqlP = document.getElementById("sql-gate-pass");
+        if (sqlU) sqlU.value = "";
+        if (sqlP) sqlP.value = "";
+      }
     }
 
     function updateSidebarCounters() {
@@ -2214,19 +2672,42 @@
     // ============================================================================
     // 6. VISTA 2: BUSCAR (CATÁLOGO DETALLADO Y CONSULTA DE STOCK)
     // ============================================================================
+    function populateMarcasFilter() {
+      const select = document.getElementById("buscar-marca");
+      if (!select) return;
+      const currentVal = select.value;
+      const marcasSet = new Set(["UNIVERSAL", "VOLKSWAGEN", "RENAULT", "RENAULT MASTER", "MULTIMARCA"]);
+      state.almacen.forEach(item => {
+        if (item.compatibilidad && item.compatibilidad.trim()) {
+          marcasSet.add(item.compatibilidad.trim().toUpperCase());
+        }
+      });
+      const marcasArr = Array.from(marcasSet).sort();
+      select.innerHTML = `<option value="ALL">Todas las marcas</option>` +
+        marcasArr.map(m => `<option value="${m}">${m}</option>`).join("");
+      if (currentVal && (currentVal === "ALL" || marcasSet.has(currentVal))) {
+        select.value = currentVal;
+      }
+    }
+
     function renderBuscarCatalog() {
-      const q = (document.getElementById("buscar-query").value || "").toLowerCase().trim();
-      const marcaFilter = document.getElementById("buscar-marca").value;
-      const stockFilter = document.getElementById("buscar-stock-filter").value;
+      const q = (document.getElementById("buscar-query") ? document.getElementById("buscar-query").value : "").toLowerCase().trim();
+      const codigoFilter = (document.getElementById("buscar-codigo-filter") ? document.getElementById("buscar-codigo-filter").value : "").toUpperCase().trim();
+      const marcaFilter = document.getElementById("buscar-marca") ? document.getElementById("buscar-marca").value : "ALL";
+      const stockFilter = document.getElementById("buscar-stock-filter") ? document.getElementById("buscar-stock-filter").value : "ALL";
 
       const results = state.almacen.filter(item => {
+        const itemCod = (item.codigo || `COD${String(item.id).padStart(7, "0")}`).toUpperCase();
+        if (codigoFilter && !itemCod.includes(codigoFilter)) {
+          return false;
+        }
         if (marcaFilter !== "ALL") {
           if (!(item.compatibilidad || "").toUpperCase().includes(marcaFilter)) return false;
         }
         if (stockFilter === "NORMAL" && item.stock <= 5) return false;
         if (stockFilter === "LOW" && item.stock > 5) return false;
         if (q) {
-          const hay = `${item.id} ${item.descripcion} ${item.compatibilidad} ${item.detalles || ""} ${item.observacion || ""}`.toLowerCase();
+          const hay = `${item.id} ${itemCod} ${item.descripcion} ${item.compatibilidad} ${item.detalles || ""} ${item.observacion || ""}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -2245,6 +2726,8 @@
         return;
       }
 
+      const canManageCatalog = hasPermission("modificar_precios") || (state.currentUser && (state.currentUser.username.toUpperCase() === "WILLOSIRIS" || state.currentUser.username.toLowerCase() === "admin" || hasPermission("gestionar_usuarios") || hasPermission("acceso_sql")));
+
       grid.innerHTML = results.map(item => {
         const isLow = item.stock <= 3;
         const stockBadge = isLow
@@ -2253,12 +2736,14 @@
           ? "bg-amber-50 text-amber-800 border-amber-200"
           : "bg-emerald-50 text-emerald-800 border-emerald-200";
 
+        const displayCode = item.codigo || `COD${String(item.id).padStart(7, "0")}`;
+
         return `
           <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between">
             <div>
               <div class="flex items-start justify-between gap-2 mb-2">
-                <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-sans text-[10px] font-bold tracking-wider uppercase">
-                  CÓD. #${String(item.id).padStart(3, "0")} • ${item.compatibilidad}
+                <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-mono text-[10px] font-bold tracking-wider uppercase">
+                  ${displayCode} • ${item.compatibilidad}
                 </span>
                 <span class="px-2.5 py-0.5 rounded-full border text-xs font-bold ${stockBadge}">
                   Stock: ${item.stock} ${item.und}
@@ -2280,7 +2765,7 @@
 
               <div class="mt-3 space-y-1.5 text-xs text-gray-600">
                 <div>
-                  <strong class="text-gray-800">Detalles:</strong> ${item.detalles || "Sin detalles adicionales"}
+                  <strong class="text-gray-800">Detalles Técnicos:</strong> ${item.detalles || "Sin detalles adicionales"}
                 </div>
                 <div>
                   <strong class="text-gray-800">Observaciones:</strong>
@@ -2290,9 +2775,13 @@
             </div>
 
             <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-              <button onclick="openProductModal(${item.id})" class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs text-gray-700">
-                Ver / Editar Ficha
-              </button>
+              ${canManageCatalog ? `
+                <button onclick="confirmarEdicionProducto(${item.id})" class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs text-gray-700">
+                  Ver / Editar Ficha
+                </button>
+              ` : `
+                <span class="text-[11px] text-gray-400">Stock disponible</span>
+              `}
               <button onclick="addProductToPosAndGo(${item.id})" class="px-3.5 py-1.5 rounded-lg bg-[#101929] hover:bg-black text-white text-xs font-medium flex items-center gap-1.5">
                 <i data-lucide="shopping-cart" class="w-3.5 h-3.5"></i>
                 <span>Vender Ahora</span>
@@ -2305,8 +2794,8 @@
     }
 
     function addProductToPosAndGo(prodId) {
-      addProductToPosCart(prodId);
       switchTab("registrar-venta");
+      addProductToPosCart(prodId);
     }
 
     // ============================================================================
@@ -2315,13 +2804,71 @@
     function renderPosView() {
       renderPosProductPicker();
       renderPosCartTable();
-      if (!state.posSelectedClient) {
-        if (state.clientes.length > 0) {
-          selectPosClient(state.clientes[0].codigo);
-        } else {
-          selectPosClient("OTROS");
-        }
+      // El buscador de cliente inicia limpio y listo para buscar o seleccionar OTROS (Punto 3)
+      const fechaInput = document.getElementById("pos-fecha");
+      if (fechaInput && !fechaInput.value) {
+        fechaInput.value = getTodayLocalISO();
       }
+    }
+
+    function clearPosForm(keepCart = false) {
+      if (!keepCart) {
+        state.posCart = [];
+      }
+      state.posSelectedClient = null;
+
+      const searchInput = document.getElementById("pos-client-search-input");
+      const codInput = document.getElementById("pos-client-codigo");
+      const oriInput = document.getElementById("pos-client-origen");
+      const nomInput = document.getElementById("pos-client-nombre");
+      const debtAlert = document.getElementById("pos-selected-client-debt-alert");
+      const modeBadge = document.getElementById("pos-manual-mode-badge");
+
+      if (searchInput) searchInput.value = "";
+      if (codInput) {
+        codInput.value = "";
+        codInput.setAttribute("readonly", "true");
+        codInput.placeholder = "Código (ej. #27)";
+      }
+      if (oriInput) {
+        oriInput.value = "";
+        oriInput.setAttribute("readonly", "true");
+        oriInput.placeholder = "Ej. JULIACA / TALLER";
+      }
+      if (nomInput) {
+        nomInput.value = "";
+        nomInput.setAttribute("readonly", "true");
+        nomInput.placeholder = "Nombre completo o referencia del cliente";
+      }
+      if (debtAlert) debtAlert.classList.add("hidden");
+      if (modeBadge) {
+        modeBadge.textContent = "Pendiente de selección";
+        modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-500";
+      }
+
+      // La fecha se actualiza a la fecha actual del día siempre que se da en limpiar (Punto 3)
+      const todayStr = getTodayLocalISO();
+      const fechaInput = document.getElementById("pos-fecha");
+      if (fechaInput) fechaInput.value = todayStr;
+
+      const obsInput = document.getElementById("pos-observacion");
+      if (obsInput) obsInput.value = "";
+
+      const payModeSelect = document.getElementById("pos-payment-mode");
+      if (payModeSelect) {
+        payModeSelect.value = "CREDITO";
+        onPosPaymentModeChange("CREDITO");
+      }
+
+      const adelantoInput = document.getElementById("pos-adelanto-input");
+      if (adelantoInput) adelantoInput.value = "0";
+
+      const prodSearch = document.getElementById("pos-product-search");
+      if (prodSearch) prodSearch.value = "";
+
+      updateSidebarCounters();
+      renderPosProductPicker();
+      renderPosCartTable();
     }
 
     function renderPosProductPicker() {
@@ -2536,8 +3083,13 @@
       document.getElementById("pos-client-dropdown").classList.remove("hidden");
     }
 
-    function togglePosClientDropdown() {
+    function togglePosClientDropdown(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       const dd = document.getElementById("pos-client-dropdown");
+      if (!dd) return;
       if (dd.classList.contains("hidden")) {
         openPosClientDropdown();
       } else {
@@ -2659,7 +3211,8 @@
     document.addEventListener("click", (e) => {
       const dd = document.getElementById("pos-client-dropdown");
       const inp = document.getElementById("pos-client-search-input");
-      if (dd && inp && !dd.contains(e.target) && !inp.contains(e.target)) {
+      const btn = document.getElementById("pos-client-dropdown-btn");
+      if (dd && !dd.contains(e.target) && e.target !== inp && (!btn || !btn.contains(e.target))) {
         dd.classList.add("hidden");
       }
     });
@@ -2702,10 +3255,10 @@
         return;
       }
 
-      const codigoCli = (document.getElementById("pos-client-codigo").value || "").trim().toUpperCase() || "OTRO";
+      const codigoCli = (document.getElementById("pos-client-codigo").value || "").trim().toUpperCase() || "OTROS";
       const origenCli = (document.getElementById("pos-client-origen").value || "").trim().toUpperCase() || "PARTICULAR";
       const nombreCli = (document.getElementById("pos-client-nombre").value || "").trim();
-      const fecha = document.getElementById("pos-fecha").value || new Date().toISOString().slice(0, 10);
+      const fecha = document.getElementById("pos-fecha").value || getTodayLocalISO();
       const payMode = document.getElementById("pos-payment-mode").value;
       const observacion = document.getElementById("pos-observacion").value.trim();
 
@@ -2734,9 +3287,11 @@
 
       const origenWithNombre = nombreCli ? `${origenCli} - ${nombreCli}` : origenCli;
 
+      let createdSaleId = Date.now();
+
       if (supabaseClient) {
         try {
-          const { error: saleErr } = await supabaseClient.from("ventas").insert([{
+          const { data: insertedData, error: saleErr } = await supabaseClient.from("ventas").insert([{
             ticket: ticketCode,
             descripcion: summaryDesc,
             cantidad: totalUnits,
@@ -2748,8 +3303,12 @@
             origen: origenWithNombre,
             estado: estado,
             observacion: observacion
-          }]);
+          }]).select();
           if (saleErr) throw saleErr;
+
+          if (insertedData && insertedData[0]) {
+            createdSaleId = insertedData[0].id;
+          }
 
           for (const cartItem of state.posCart) {
             const prod = state.almacen.find(a => a.id === cartItem.productId);
@@ -2767,6 +3326,7 @@
         }
       } else {
         const newId = state.ventas.reduce((max, v) => Math.max(max, v.id), 0) + 1;
+        createdSaleId = newId;
         state.ventas.unshift({
           id: newId,
           ticket: ticketCode,
@@ -2789,15 +3349,89 @@
         saveLocalBackup();
       }
 
-      state.posCart = [];
-      document.getElementById("pos-observacion").value = "";
-      document.getElementById("pos-adelanto-input").value = "0";
-      document.getElementById("pos-payment-mode").value = "CREDITO";
-      onPosPaymentModeChange("CREDITO");
+      // Guardar objeto de venta reciente para las acciones posteriores
+      lastCreatedSale = {
+        id: createdSaleId,
+        ticket: ticketCode,
+        cliente: codigoCli,
+        origen: origenWithNombre,
+        total: totalAmount,
+        pagado: pagado,
+        saldo: Math.max(0, totalAmount - pagado),
+        estado: estado,
+        descripcion: summaryDesc,
+        fecha: fecha,
+        cantidad: totalUnits,
+        observacion: observacion
+      };
+
+      // Limpiar todos los campos, cliente, carrito y restaurar fecha actual del día (Punto 3)
+      clearPosForm(false);
 
       renderAll();
-      showToast(`Venta registrada y guardada en Supabase para ${codigoCli} (${formatMoney(totalAmount)})`, "success");
-      switchTab("historial-ventas");
+
+      // Ventana 1: Cuadro señalando que el registro fue exitoso con botón OK de color verde (Punto 3)
+      mostrarModalVentaExitosa(lastCreatedSale);
+    }
+
+    function mostrarModalVentaExitosa(sale) {
+      document.getElementById("modal-success-ticket").textContent = sale.ticket || `#${sale.id}`;
+      document.getElementById("modal-success-cliente").textContent = `${sale.cliente} (${sale.origen || 'General'})`;
+      document.getElementById("modal-success-total").textContent = formatMoney(sale.total);
+      
+      const estadoEl = document.getElementById("modal-success-estado");
+      estadoEl.textContent = sale.estado;
+      estadoEl.className = sale.estado === "Cancelado" ? "font-bold text-emerald-700" : "font-bold text-amber-700";
+
+      const m = document.getElementById("modal-venta-exitosa");
+      m.classList.remove("hidden");
+      m.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function onVentaExitosaOkClick() {
+      // Ocultar modal de éxito y mostrar la ventana con las acciones (Punto 3)
+      document.getElementById("modal-venta-exitosa").classList.add("hidden");
+      document.getElementById("modal-venta-exitosa").classList.remove("flex");
+
+      if (!lastCreatedSale) return;
+
+      document.getElementById("modal-acciones-ticket-badge").textContent = lastCreatedSale.ticket || `#${lastCreatedSale.id}`;
+      const mAcciones = document.getElementById("modal-acciones-venta");
+      mAcciones.classList.remove("hidden");
+      mAcciones.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function accionPostVenta(tipo) {
+      if (!lastCreatedSale) return;
+      const saleId = lastCreatedSale.id;
+
+      if (tipo === "pago") {
+        document.getElementById("modal-acciones-venta").classList.add("hidden");
+        document.getElementById("modal-acciones-venta").classList.remove("flex");
+        openAbonoModal(saleId);
+      } else if (tipo === "imprimir") {
+        printSaleTicket(saleId);
+      } else if (tipo === "pdf") {
+        downloadSaleTicketPDF(saleId);
+      } else if (tipo === "historial") {
+        finalizarAccionesVenta();
+        switchTab("historial-ventas");
+        const sInp = document.getElementById("filter-ventas-search");
+        if (sInp) {
+          sInp.value = lastCreatedSale.ticket || lastCreatedSale.cliente;
+          renderVentasTable();
+        }
+      }
+    }
+
+    function finalizarAccionesVenta() {
+      const m = document.getElementById("modal-acciones-venta");
+      m.classList.add("hidden");
+      m.classList.remove("flex");
+      clearPosForm(false);
+      showToast("Venta completada. Formulario listo para nueva venta.", "info");
     }
 
     // ============================================================================
@@ -2868,7 +3502,8 @@
         return;
       }
 
-      const canDelete = hasPermission("eliminar_ventas");
+      const canDelete = hasPermission("eliminar_ventas") || (state.currentUser && (state.currentUser.username.toUpperCase() === "WILLOSIRIS" || state.currentUser.username.toLowerCase() === "admin"));
+      const canEditSale = canDelete;
 
       tbody.innerHTML = filtered.map(v => {
         const total = Number(v.total) || 0;
@@ -2897,18 +3532,37 @@
             <td class="py-3 px-3 text-right text-emerald-700 whitespace-nowrap">${formatMoney(pagado)}</td>
             <td class="py-3 px-3 text-right font-bold text-gray-900 whitespace-nowrap">${formatMoney(saldo)}</td>
             <td class="py-3 px-3 whitespace-nowrap">
-              <button onclick="toggleSaleStatus(${v.id})" title="Clic para alternar Cancelado / Por Cancelar en Supabase" class="px-2.5 py-0.5 rounded-full text-[11px] font-medium transition cursor-pointer ${badgeClass}">
+              <!-- El botón de estado ahora abre la opción de registrar pago, no cambia automáticamente (Punto 4) -->
+              <button onclick="openAbonoModal(${v.id})" title="Clic para registrar pago (El estado se actualiza al cancelar el total)" class="px-2.5 py-0.5 rounded-full text-[11px] font-medium transition cursor-pointer ${badgeClass}">
                 ${v.estado}
               </button>
             </td>
             <td class="py-3 px-2 text-right whitespace-nowrap">
               <div class="inline-flex items-center gap-1">
-                <button onclick="openAbonoModal(${v.id})" class="p-1 text-gray-500 hover:text-black rounded hover:bg-gray-100" title="Registrar adelanto o editar pago">
+                <!-- Registrar pago -->
+                <button onclick="openAbonoModal(${v.id})" class="p-1.5 text-gray-600 hover:text-black rounded hover:bg-gray-100 transition" title="Registrar adelanto o pago">
                   <i data-lucide="coins" class="w-3.5 h-3.5"></i>
                 </button>
-                <button onclick="attemptDeleteSale(${v.id})" class="p-1 ${canDelete ? 'text-gray-400 hover:text-red-600' : 'text-gray-300 hover:text-amber-600'} rounded hover:bg-red-50" title="${canDelete ? 'Eliminar registro' : 'Requiere clave de Administrador'}">
-                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <!-- Imprimir registro de venta (mismo tamaño) (Punto 4) -->
+                <button onclick="printSaleTicket(${v.id})" class="p-1.5 text-gray-600 hover:text-blue-800 rounded hover:bg-blue-50 transition" title="Imprimir comprobante oficial">
+                  <i data-lucide="printer" class="w-3.5 h-3.5"></i>
                 </button>
+                <!-- Guardar en PDF (mismo tamaño) (Punto 4) -->
+                <button onclick="downloadSaleTicketPDF(${v.id})" class="p-1.5 text-gray-600 hover:text-indigo-800 rounded hover:bg-indigo-50 transition" title="Descargar / Guardar comprobante en PDF">
+                  <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
+                </button>
+                <!-- Editar registro de venta (visible SOLO para Administrador) (Punto 4) -->
+                ${canEditSale ? `
+                  <button onclick="confirmarEdicionVenta(${v.id})" class="p-1.5 text-amber-600 hover:text-amber-800 rounded hover:bg-amber-50 transition" title="Editar registro de venta (Admin)">
+                    <i data-lucide="edit" class="w-3.5 h-3.5"></i>
+                  </button>
+                ` : ""}
+                <!-- Eliminar venta (visible SOLO para Administrador) (Punto 4) -->
+                ${canDelete ? `
+                  <button onclick="attemptDeleteSale(${v.id})" class="p-1.5 text-red-500 hover:text-red-700 rounded hover:bg-red-50 transition" title="Eliminar registro (Admin con cuenta regresiva 5s)">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                ` : ""}
               </div>
             </td>
           </tr>
@@ -2916,34 +3570,6 @@
       }).join("");
       lucide.createIcons();
     }
-
-    async function toggleSaleStatus(saleId) {
-      const item = state.ventas.find(v => v.id === saleId);
-      if (!item) return;
-
-      const newEstado = item.estado === "Por Cancelar" ? "Cancelado" : "Por Cancelar";
-      const newPagado = newEstado === "Cancelado" ? (Number(item.total) || 0) : 0;
-
-      if (supabaseClient) {
-        const { error } = await supabaseClient.from("ventas").update({
-          estado: newEstado,
-          pagado: newPagado
-        }).eq("id", saleId);
-
-        if (error) {
-          showToast("Error al actualizar estado en Supabase", "warning");
-          return;
-        }
-        await syncFromSupabase(false);
-      } else {
-        item.estado = newEstado;
-        item.pagado = newPagado;
-        saveLocalBackup();
-        renderAll();
-      }
-      showToast(`Venta #${saleId} actualizada a ${newEstado}`, "success");
-    }
-
     function openAbonoModal(saleId) {
       const v = state.ventas.find(x => x.id === saleId);
       if (!v) return;
@@ -2970,6 +3596,7 @@
       if (!v) return;
 
       const pagado = Math.max(0, Number(document.getElementById("abono-pagado-input").value) || 0);
+      // El estado cambiará SOLO si el pago es cancelado por completo; si queda deuda seguirá "Por Cancelar" (Punto 4)
       const estado = pagado >= v.total && v.total > 0 ? "Cancelado" : "Por Cancelar";
       const observacion = document.getElementById("abono-obs-input").value.trim();
 
@@ -2994,17 +3621,119 @@
       }
 
       closeAbonoModal();
-      showToast(`Pago actualizado en venta #${id}`, "success");
+      showToast(`Pago actualizado en venta #${id}. Estado: ${estado}`, "success");
     }
 
-    function attemptDeleteSale(saleId) {
-      if (hasPermission("eliminar_ventas")) {
-        executeDeleteSale(saleId);
+    // Modal de confirmación para editar registro de venta (Punto 4 y Punto 6)
+    function confirmarEdicionVenta(saleId) {
+      const v = state.ventas.find(x => x.id === saleId);
+      if (!v) return;
+      showConfirmActionModal({
+        type: "edit",
+        title: "Editar Registro de Venta",
+        message: `Estás a punto de modificar la venta #${v.id} (${v.ticket || 'Ticket'}) del cliente "${v.cliente}".`,
+        detail: `Total actual: ${formatMoney(v.total)} | Pagado: ${formatMoney(v.pagado)}`,
+        confirmText: "Continuar con la Edición",
+        onConfirm: () => {
+          openEditSaleModal(saleId);
+        }
+      });
+    }
+
+    function openEditSaleModal(saleId) {
+      const v = state.ventas.find(x => x.id === saleId);
+      if (!v) return;
+      document.getElementById("edit-sale-id").value = v.id;
+      document.getElementById("edit-sale-ticket").value = v.ticket || `#${v.id}`;
+      document.getElementById("edit-sale-fecha").value = v.fecha || new Date().toISOString().slice(0, 10);
+      document.getElementById("edit-sale-cliente").value = v.cliente || "";
+      document.getElementById("edit-sale-origen").value = v.origen || "";
+      document.getElementById("edit-sale-descripcion").value = v.descripcion || "";
+      document.getElementById("edit-sale-cantidad").value = v.cantidad || 1;
+      document.getElementById("edit-sale-total").value = v.total || 0;
+      document.getElementById("edit-sale-pagado").value = v.pagado || 0;
+      document.getElementById("edit-sale-observacion").value = v.observacion || "";
+
+      const m = document.getElementById("modal-editar-venta");
+      m.classList.remove("hidden");
+      m.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function closeEditSaleModal() {
+      const m = document.getElementById("modal-editar-venta");
+      m.classList.add("hidden");
+      m.classList.remove("flex");
+    }
+
+    async function handleEditSaleSubmit(e) {
+      e.preventDefault();
+      const id = Number(document.getElementById("edit-sale-id").value);
+      const v = state.ventas.find(x => x.id === id);
+      if (!v) return;
+
+      const fecha = document.getElementById("edit-sale-fecha").value;
+      const cliente = document.getElementById("edit-sale-cliente").value.trim().toUpperCase();
+      const origen = document.getElementById("edit-sale-origen").value.trim().toUpperCase();
+      const descripcion = document.getElementById("edit-sale-descripcion").value.trim();
+      const cantidad = Number(document.getElementById("edit-sale-cantidad").value) || 1;
+      const total = Number(document.getElementById("edit-sale-total").value) || 0;
+      const pagado = Number(document.getElementById("edit-sale-pagado").value) || 0;
+      const observacion = document.getElementById("edit-sale-observacion").value.trim();
+
+      const estado = pagado >= total && total > 0 ? "Cancelado" : "Por Cancelar";
+
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from("ventas").update({
+          fecha,
+          cliente,
+          origen,
+          descripcion,
+          cantidad,
+          precio_total: total,
+          pagado,
+          estado,
+          observacion
+        }).eq("id", id);
+
+        if (error) {
+          showToast("Error al guardar cambios en Supabase: " + error.message, "warning");
+          return;
+        }
+        await syncFromSupabase(false);
       } else {
-        requestAdminAuthorization("Solo con acceso de Administrador puedes eliminar registros del Historial de Ventas.", () => {
-          executeDeleteSale(saleId);
-        });
+        v.fecha = fecha;
+        v.cliente = cliente;
+        v.origen = origen;
+        v.descripcion = descripcion;
+        v.cantidad = cantidad;
+        v.total = total;
+        v.pagado = pagado;
+        v.estado = estado;
+        v.observacion = observacion;
+        saveLocalBackup();
+        renderAll();
       }
+
+      closeEditSaleModal();
+      showToast(`Venta #${id} actualizada exitosamente por Administrador`, "success");
+    }
+
+    // Modal de confirmación para eliminar venta con cuenta regresiva de 5 segundos (Punto 4 y Punto 6)
+    function attemptDeleteSale(saleId) {
+      const v = state.ventas.find(x => x.id === saleId);
+      const ticketDesc = v ? `${v.ticket || '#' + v.id} - ${v.cliente}` : `#${saleId}`;
+
+      showConfirmActionModal({
+        type: "delete",
+        title: "Eliminar Registro de Venta",
+        message: `¿Estás seguro de eliminar permanentemente la venta #${ticketDesc}?`,
+        detail: "Esta acción no se puede deshacer. Se removerá del Historial y de Supabase.",
+        confirmText: "Eliminar Venta Definitivamente",
+        onConfirm: () => {
+          executeDeleteSale(saleId);
+        }
+      });
     }
 
     async function executeDeleteSale(saleId) {
@@ -3023,36 +3752,140 @@
       showToast(`Venta #${saleId} eliminada permanentemente`, "info");
     }
 
+    // Funciones para Imprimir Comprobante Oficial y Guardar en PDF (Punto 3 y Punto 4)
+    function generateTicketHTML(sale) {
+      const saldo = Math.max(0, (Number(sale.total) || 0) - (Number(sale.pagado) || 0));
+      return `
+        <div style="max-width: 500px; margin: 0 auto; font-family: 'Courier New', monospace; font-size: 13px; color: #000; line-height: 1.5; padding: 15px; border: 1px dashed #999;">
+          <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px;">
+            <div style="font-size: 18px; font-weight: bold; letter-spacing: 2px;">ANAROSA</div>
+            <div style="font-size: 11px;">REPUESTOS Y ACCESORIOS AUTOMOTRICES</div>
+            <div style="font-size: 11px;">CONTROL Y VENTAS DE ALMACÉN</div>
+            <div style="margin-top: 6px; font-weight: bold;">COMPROBANTE DE VENTA: ${sale.ticket || '#' + sale.id}</div>
+            <div style="font-size: 11px;">Fecha: ${formatDatePE(sale.fecha)}</div>
+          </div>
+
+          <div style="margin-bottom: 12px; font-size: 12px;">
+            <div><strong>CLIENTE:</strong> ${sale.cliente}</div>
+            ${sale.origen ? `<div><strong>ORIGEN / SEDE:</strong> ${sale.origen}</div>` : ""}
+            <div><strong>ESTADO PAGO:</strong> ${sale.estado === 'Cancelado' ? 'CANCELADO (TOTAL)' : 'POR CANCELAR (CON SALDO)'}</div>
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 12px;">
+            <thead>
+              <tr style="border-bottom: 1px solid #000; border-top: 1px solid #000;">
+                <th style="text-align: left; padding: 4px 2px;">DESCRIPCIÓN</th>
+                <th style="text-align: center; padding: 4px 2px;">CANT.</th>
+                <th style="text-align: right; padding: 4px 2px;">TOTAL</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding: 6px 2px; vertical-align: top;">${sale.descripcion}</td>
+                <td style="padding: 6px 2px; text-align: center; vertical-align: top;">${sale.cantidad}</td>
+                <td style="padding: 6px 2px; text-align: right; vertical-align: top; font-weight: bold;">${formatMoney(sale.total)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="border-top: 1px dashed #000; padding-top: 8px; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: bold;">
+              <span>TOTAL A PAGAR:</span>
+              <span>${formatMoney(sale.total)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px;">
+              <span>MONTO PAGADO:</span>
+              <span>${formatMoney(sale.pagado)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; color: ${saldo > 0 ? '#b91c1c' : '#047857'};">
+              <span>SALDO PENDIENTE:</span>
+              <span>${formatMoney(saldo)}</span>
+            </div>
+          </div>
+
+          ${sale.observacion ? `<div style="font-size: 11px; margin-bottom: 10px; font-style: italic;"><strong>Observaciones:</strong> ${sale.observacion}</div>` : ""}
+
+          <div style="text-align: center; font-size: 11px; border-top: 1px dashed #000; padding-top: 10px; color: #444;">
+            <div>¡Gracias por su preferencia!</div>
+            <div>Emitido por: ${state.currentUser ? state.currentUser.username : 'ANAROSA'}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function printSaleTicket(saleId) {
+      const v = state.ventas.find(x => x.id === saleId) || (lastCreatedSale && lastCreatedSale.id === saleId ? lastCreatedSale : null);
+      if (!v) return;
+      const printArea = document.getElementById("print-report-area");
+      printArea.innerHTML = generateTicketHTML(v);
+      const modal = document.getElementById("modal-print-report");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function downloadSaleTicketPDF(saleId) {
+      const v = state.ventas.find(x => x.id === saleId) || (lastCreatedSale && lastCreatedSale.id === saleId ? lastCreatedSale : null);
+      if (!v) return;
+      printSaleTicket(saleId);
+      showToast("Selecciona 'Guardar como PDF' como destino para descargar", "info");
+      setTimeout(() => {
+        window.print();
+      }, 350);
+    }
+
     function onReportTypeChange() {
       const type = document.getElementById("report-period-type").value;
-      const picker = document.getElementById("report-month-picker");
-      picker.style.display = type === "MENSUAL" ? "inline-block" : "none";
+      const monthPicker = document.getElementById("report-month-picker");
+      const dayPicker = document.getElementById("report-day-picker");
+
+      if (type === "DIA") {
+        if (dayPicker) {
+          dayPicker.classList.remove("hidden");
+          if (!dayPicker.value) dayPicker.value = getTodayLocalISO();
+        }
+        if (monthPicker) monthPicker.classList.add("hidden");
+      } else if (type === "MENSUAL") {
+        if (dayPicker) dayPicker.classList.add("hidden");
+        if (monthPicker) {
+          monthPicker.classList.remove("hidden");
+          if (!monthPicker.value) monthPicker.value = getTodayLocalISO().slice(0, 7);
+        }
+      } else {
+        if (dayPicker) dayPicker.classList.add("hidden");
+        if (monthPicker) monthPicker.classList.add("hidden");
+      }
     }
 
     function openPrintReportModal() {
       const type = document.getElementById("report-period-type").value;
-      const monthVal = document.getElementById("report-month-picker").value || "2026-11";
+      const monthVal = (document.getElementById("report-month-picker") ? document.getElementById("report-month-picker").value : "") || getTodayLocalISO().slice(0, 7);
+      const dayVal = (document.getElementById("report-day-picker") ? document.getElementById("report-day-picker").value : "") || getTodayLocalISO();
 
       let rows = [];
       let titlePeriod = "";
 
-      if (type === "MENSUAL") {
+      if (type === "DIA") {
+        rows = state.ventas.filter(v => (v.fecha || "") === dayVal);
+        titlePeriod = `REPORTE DEL DÍA (${formatDatePE(dayVal)})`;
+      } else if (type === "MENSUAL") {
         rows = state.ventas.filter(v => (v.fecha || "").startsWith(monthVal));
         titlePeriod = `REPORTE MENSUAL DE VENTAS (${monthVal})`;
       } else if (type === "ANUAL") {
-        const year = monthVal.split("-")[0] || "2026";
+        const year = monthVal.split("-")[0] || new Date().getFullYear().toString();
         rows = state.ventas.filter(v => (v.fecha || "").startsWith(year));
         titlePeriod = `REPORTE ANUAL DE VENTAS (AÑO ${year})`;
       } else if (type === "SEMANAL") {
         const sortedDates = state.ventas.map(v => v.fecha).sort();
-        const latestDateStr = sortedDates[sortedDates.length - 1] || new Date().toISOString().slice(0, 10);
+        const latestDateStr = sortedDates[sortedDates.length - 1] || getTodayLocalISO();
         const latestDate = new Date(latestDateStr + "T00:00:00");
         const weekAgo = new Date(latestDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const weekAgoStr = `${weekAgo.getFullYear()}-${String(weekAgo.getMonth() + 1).padStart(2, "0")}-${String(weekAgo.getDate()).padStart(2, "0")}`;
         rows = state.ventas.filter(v => {
           const d = new Date((v.fecha || "2026-01-01") + "T00:00:00");
           return d >= weekAgo && d <= latestDate;
         });
-        titlePeriod = `REPORTE SEMANAL DE VENTAS (${formatDatePE(weekAgo.toISOString().slice(0, 10))} al ${formatDatePE(latestDateStr)})`;
+        titlePeriod = `REPORTE SEMANAL DE VENTAS (${formatDatePE(weekAgoStr)} al ${formatDatePE(latestDateStr)})`;
       } else {
         rows = getFilteredVentasForTable();
         titlePeriod = `REPORTE DE VENTAS (SEGÚN FILTRO EN PANTALLA)`;
@@ -3134,6 +3967,167 @@
     }
 
     // ============================================================================
+    // MODALES UNIVERSALES DE CONFIRMACIÓN (CUENTA REGRESIVA 5S) Y DUPLICADOS
+    // ============================================================================
+    function showConfirmActionModal({ type = "delete", title, message, detail, confirmText, onConfirm }) {
+      if (confirmCountdownInterval) {
+        clearInterval(confirmCountdownInterval);
+        confirmCountdownInterval = null;
+      }
+      pendingConfirmAction = onConfirm;
+
+      const modal = document.getElementById("modal-confirmacion-accion");
+      const iconBox = document.getElementById("confirm-icon-box");
+      const titleEl = document.getElementById("confirm-modal-title");
+      const msgEl = document.getElementById("confirm-modal-message");
+      const detailEl = document.getElementById("confirm-modal-detail");
+      const btn = document.getElementById("confirm-modal-action-btn");
+
+      titleEl.textContent = title || (type === "delete" ? "Confirmar Eliminación" : "Confirmar Modificación");
+      msgEl.textContent = message || "¿Estás seguro de continuar con esta acción?";
+
+      if (detail) {
+        detailEl.textContent = detail;
+        detailEl.classList.remove("hidden");
+      } else {
+        detailEl.classList.add("hidden");
+      }
+
+      btn.onclick = null;
+
+      if (type === "delete") {
+        iconBox.className = "w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3.5";
+        iconBox.innerHTML = `<i data-lucide="trash-2" class="w-7 h-7"></i>`;
+
+        const baseText = confirmText || "Eliminar Definitivamente";
+        btn.disabled = true;
+        btn.className = "flex-1 px-4 py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-1.5 bg-red-300 text-white cursor-not-allowed opacity-60";
+
+        let countdown = 5;
+        btn.innerHTML = `<span>${baseText} (${countdown}s)</span>`;
+
+        confirmCountdownInterval = setInterval(() => {
+          countdown--;
+          if (countdown > 0) {
+            btn.innerHTML = `<span>${baseText} (${countdown}s)</span>`;
+          } else {
+            clearInterval(confirmCountdownInterval);
+            confirmCountdownInterval = null;
+            btn.disabled = false;
+            btn.className = "flex-1 px-4 py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-md";
+            btn.innerHTML = `<i data-lucide="trash-2" class="w-4 h-4"></i><span>${baseText}</span>`;
+            lucide.createIcons();
+          }
+        }, 1000);
+
+        btn.onclick = () => {
+          if (countdown > 0) return;
+          const callback = pendingConfirmAction;
+          closeConfirmActionModal();
+          if (typeof callback === "function") {
+            callback();
+          }
+        };
+      } else {
+        iconBox.className = "w-14 h-14 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3.5";
+        iconBox.innerHTML = `<i data-lucide="alert-triangle" class="w-7 h-7"></i>`;
+
+        const baseText = confirmText || "Continuar con la Edición";
+        btn.disabled = false;
+        btn.className = "flex-1 px-4 py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-1.5 bg-[#101929] hover:bg-black text-white cursor-pointer shadow-md";
+        btn.innerHTML = `<i data-lucide="edit-3" class="w-4 h-4"></i><span>${baseText}</span>`;
+
+        btn.onclick = () => {
+          const callback = pendingConfirmAction;
+          closeConfirmActionModal();
+          if (typeof callback === "function") {
+            callback();
+          }
+        };
+      }
+
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function closeConfirmActionModal() {
+      if (confirmCountdownInterval) {
+        clearInterval(confirmCountdownInterval);
+        confirmCountdownInterval = null;
+      }
+      pendingConfirmAction = null;
+      const modal = document.getElementById("modal-confirmacion-accion");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function openDuplicateProductModal(existingProd, attemptedDesc) {
+      duplicatePendingProduct = existingProd;
+      const container = document.getElementById("duplicate-prod-info");
+      const code = existingProd.codigo || `COD${String(existingProd.id).padStart(7, "0")}`;
+      container.innerHTML = `
+        <div class="font-bold text-gray-900 text-sm">${existingProd.descripcion}</div>
+        <div class="text-[11px] text-gray-600">Código: <strong class="font-mono">${code}</strong> | Compatibilidad: <strong>${existingProd.compatibilidad}</strong></div>
+        <div class="text-[11px] text-gray-600">Stock Actual: <strong class="text-emerald-700">${existingProd.stock} ${existingProd.und}</strong> | P. Venta: <strong>${formatMoney(existingProd.pVenta)}</strong></div>
+      `;
+      const m = document.getElementById("modal-duplicado-producto");
+      m.classList.remove("hidden");
+      m.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function closeDuplicateProductModal() {
+      duplicatePendingProduct = null;
+      const m = document.getElementById("modal-duplicado-producto");
+      m.classList.add("hidden");
+      m.classList.remove("flex");
+      const descInp = document.getElementById("prod-descripcion");
+      if (descInp) descInp.focus();
+    }
+
+    function onDuplicateEditExistingProduct() {
+      if (!duplicatePendingProduct) return;
+      const prodId = duplicatePendingProduct.id;
+      closeDuplicateProductModal();
+      closeProductModal();
+      confirmarEdicionProducto(prodId);
+    }
+
+    function openDuplicateClientModal(existingCli) {
+      duplicatePendingClient = existingCli;
+      const container = document.getElementById("duplicate-client-info");
+      const debtMap = getClientDebtMap();
+      const dInfo = debtMap[existingCli.codigo.toUpperCase()] || { totalComprado: 0, saldo: 0, pendingCount: 0 };
+
+      container.innerHTML = `
+        <div class="font-bold text-gray-900 text-sm">${existingCli.codigo} <span class="text-xs font-normal text-gray-500">(${existingCli.origen})</span></div>
+        <div class="text-[11px] text-gray-600">Nombre / Contacto: <strong>${existingCli.nombre || existingCli.telefono || '-'}</strong></div>
+        <div class="text-[11px] text-gray-600">Deuda actual: <strong class="${dInfo.saldo > 0 ? 'text-red-600 font-bold' : 'text-emerald-700'}">${formatMoney(dInfo.saldo)}</strong> (${dInfo.pendingCount} venta(s) pendientes)</div>
+      `;
+      const m = document.getElementById("modal-duplicado-cliente");
+      m.classList.remove("hidden");
+      m.classList.add("flex");
+      lucide.createIcons();
+    }
+
+    function closeDuplicateClientModal() {
+      duplicatePendingClient = null;
+      const m = document.getElementById("modal-duplicado-cliente");
+      m.classList.add("hidden");
+      m.classList.remove("flex");
+      const codInp = document.getElementById("new-client-codigo");
+      if (codInp) codInp.focus();
+    }
+
+    function onDuplicateJumpToClient() {
+      if (!duplicatePendingClient) return;
+      const cod = duplicatePendingClient.codigo;
+      closeDuplicateClientModal();
+      jumpToClientSales(cod);
+    }
+
+    // ============================================================================
     // 9. VISTA 5: COMPRAS Y ALMACÉN (CON CRUD REAL EN SUPABASE)
     // ============================================================================
     function renderAlmacenView() {
@@ -3164,6 +4158,8 @@
       }
 
       const tbody = document.getElementById("almacen-table-body");
+      const canManageAlmacen = hasPermission("modificar_precios") || (state.currentUser && (state.currentUser.username.toUpperCase() === "WILLOSIRIS" || state.currentUser.username.toLowerCase() === "admin"));
+
       if (state.almacen.length === 0) {
         tbody.innerHTML = `
           <tr>
@@ -3178,11 +4174,15 @@
           const pVenta = Number(item.pVenta) || 0;
           const ganancia = pVenta - pCompra;
           const isLow = Number(item.stock) <= 3;
+          const displayCode = item.codigo || `COD${String(item.id).padStart(7, "0")}`;
 
           return `
             <tr class="hover:bg-gray-50 transition">
-              <td class="py-3 px-4 text-gray-400 font-medium">${index + 1}</td>
-              <td class="py-3 px-4 font-bold text-gray-900">${item.descripcion}</td>
+              <td class="py-3 px-4 text-gray-400 font-mono text-xs">${index + 1}</td>
+              <td class="py-3 px-4">
+                <div class="font-bold text-gray-900">${item.descripcion}</div>
+                <div class="text-[10px] text-gray-400 font-mono mt-0.5">Código: <span class="text-gray-700 font-bold">${displayCode}</span></div>
+              </td>
               <td class="py-3 px-4">
                 <span class="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[11px] font-medium">${item.compatibilidad}</span>
               </td>
@@ -3199,10 +4199,21 @@
                 <div class="${isLow ? 'text-red-600 font-medium' : 'text-gray-400'}">${item.observacion || ""}</div>
               </td>
               <td class="py-3 px-4 text-right whitespace-nowrap">
-                <button onclick="openProductModal(${item.id})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-gray-200 hover:border-gray-400 text-gray-700 hover:text-black text-[11px] transition">
-                  <i data-lucide="sliders-horizontal" class="w-3 h-3"></i>
-                  Editar
-                </button>
+                <!-- En las acciones agregar para eliminar el producto, visible solo para el admin al igual que editar (Punto 5) -->
+                ${canManageAlmacen ? `
+                  <div class="inline-flex items-center gap-1.5">
+                    <button onclick="confirmarEdicionProducto(${item.id})" class="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-gray-200 hover:border-gray-400 text-gray-700 hover:text-black text-[11px] transition shadow-2xs" title="Editar ficha de repuesto (Admin)">
+                      <i data-lucide="sliders-horizontal" class="w-3 h-3"></i>
+                      <span>Editar</span>
+                    </button>
+                    <button onclick="attemptDeleteProduct(${item.id})" class="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-200 bg-red-50/50 hover:bg-red-100 text-red-700 text-[11px] transition shadow-2xs" title="Eliminar repuesto (Admin con cuenta regresiva 5s)">
+                      <i data-lucide="trash-2" class="w-3 h-3 text-red-600"></i>
+                      <span>Eliminar</span>
+                    </button>
+                  </div>
+                ` : `
+                  <span class="text-[11px] text-gray-400 italic">Solo lectura</span>
+                `}
               </td>
             </tr>
           `;
@@ -3321,6 +4332,28 @@
       showToast(`Ingreso registrado en Supabase: ${repuestoNombre}`, "success");
     }
 
+    // Función para obtener el siguiente código disponible o correlativo (Punto 5)
+    function getNextAvailableProductCode() {
+      const usedNumbers = new Set();
+      state.almacen.forEach(item => {
+        const cod = (item.codigo || "").toUpperCase();
+        const match = cod.match(/^COD(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > 0) {
+            usedNumbers.add(num);
+          }
+        }
+      });
+
+      // Si hay algún hueco libre por productos eliminados antiguamente, toma ese primero; si no, toma el siguiente
+      let candidate = 1;
+      while (usedNumbers.has(candidate)) {
+        candidate++;
+      }
+      return `COD${String(candidate).padStart(7, "0")}`;
+    }
+
     function openProductModal(editId = null) {
       const modal = document.getElementById("modal-producto");
       // Si está creando un producto desde cero o tiene permiso de administrador, puede definir el precio
@@ -3329,6 +4362,7 @@
       const pCompraInput = document.getElementById("prod-pcompra");
       const pVentaInput = document.getElementById("prod-pventa");
       const lockWarn = document.getElementById("prod-price-lock-warning");
+      const codigoInput = document.getElementById("prod-codigo");
 
       if (canEditPrices) {
         pCompraInput.removeAttribute("readonly");
@@ -3345,9 +4379,10 @@
         if (!p) return;
         document.getElementById("modal-producto-title").textContent = `Editar Repuesto #${p.id}`;
         document.getElementById("prod-edit-id").value = p.id;
+        if (codigoInput) codigoInput.value = p.codigo || `COD${String(p.id).padStart(7, "0")}`;
         document.getElementById("prod-descripcion").value = p.descripcion;
-        document.getElementById("prod-compatibilidad").value = p.compatibilidad;
-        document.getElementById("prod-und").value = p.und;
+        document.getElementById("prod-compatibilidad").value = p.compatibilidad || "UNIVERSAL";
+        document.getElementById("prod-und").value = p.und || "Unidad";
         document.getElementById("prod-stock").value = p.stock;
         pCompraInput.value = p.pCompra;
         pVentaInput.value = p.pVenta;
@@ -3356,8 +4391,11 @@
       } else {
         document.getElementById("modal-producto-title").textContent = "Nuevo Repuesto en Almacén";
         document.getElementById("prod-edit-id").value = "";
+        // Código correlativo por defecto COD0000001 o siguiente libre (Punto 5)
+        if (codigoInput) codigoInput.value = getNextAvailableProductCode();
         document.getElementById("prod-descripcion").value = "";
-        document.getElementById("prod-compatibilidad").value = "VOLKSWAGEN";
+        // Marca/Compatibilidad por defecto UNIVERSAL (Punto 5)
+        document.getElementById("prod-compatibilidad").value = "UNIVERSAL";
         document.getElementById("prod-und").value = "Unidad";
         document.getElementById("prod-stock").value = 1;
         pCompraInput.value = 0;
@@ -3388,17 +4426,81 @@
       modal.classList.remove("flex");
     }
 
+    // Modal de confirmación para editar repuesto en Almacén (Punto 6)
+    function confirmarEdicionProducto(productId) {
+      const p = state.almacen.find(a => a.id === productId);
+      if (!p) return;
+      showConfirmActionModal({
+        type: "edit",
+        title: "Editar Repuesto en Almacén",
+        message: `Estás a punto de modificar el repuesto "${p.descripcion}" (Código: ${p.codigo || '#' + p.id}).`,
+        detail: `Stock actual: ${p.stock} ${p.und} | P. Venta: ${formatMoney(p.pVenta)}`,
+        confirmText: "Continuar con la Edición",
+        onConfirm: () => {
+          openProductModal(productId);
+        }
+      });
+    }
+
+    // Modal de confirmación para eliminar repuesto con cuenta regresiva de 5 segundos (Punto 5 y Punto 6)
+    function attemptDeleteProduct(productId) {
+      const p = state.almacen.find(a => a.id === productId);
+      if (!p) return;
+      showConfirmActionModal({
+        type: "delete",
+        title: "Eliminar Repuesto de Almacén",
+        message: `¿Estás seguro de eliminar permanentemente el repuesto "${p.descripcion}" (${p.codigo || '#' + p.id})?`,
+        detail: `Stock en almacén: ${p.stock} ${p.und}. Esta acción no se puede deshacer y se borrará de Supabase.`,
+        confirmText: "Eliminar Repuesto Definitivamente",
+        onConfirm: () => {
+          executeDeleteProduct(productId);
+        }
+      });
+    }
+
+    async function executeDeleteProduct(productId) {
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from("almacen").delete().eq("id", productId);
+        if (error) {
+          showToast("Error al eliminar repuesto de Supabase: " + error.message, "warning");
+          return;
+        }
+        await syncFromSupabase(false);
+      } else {
+        state.almacen = state.almacen.filter(a => a.id !== productId);
+        saveLocalBackup();
+        renderAll();
+      }
+      showToast("Repuesto eliminado del almacén correctamente", "info");
+    }
+
     async function handleProductSubmit(e) {
       e.preventDefault();
       const editId = document.getElementById("prod-edit-id").value;
+      const codigo = (document.getElementById("prod-codigo").value || "").trim().toUpperCase() || getNextAvailableProductCode();
       const descripcion = document.getElementById("prod-descripcion").value.trim().toUpperCase();
-      const compatibilidad = document.getElementById("prod-compatibilidad").value.trim().toUpperCase();
-      const und = document.getElementById("prod-und").value.trim();
+      const compatibilidad = document.getElementById("prod-compatibilidad").value.trim().toUpperCase() || "UNIVERSAL";
+      const und = document.getElementById("prod-und").value.trim() || "Unidad";
       const stock = Number(document.getElementById("prod-stock").value) || 0;
       const pCompra = Number(document.getElementById("prod-pcompra").value) || 0;
       const pVenta = Number(document.getElementById("prod-pventa").value) || 0;
       const detalles = document.getElementById("prod-detalles").value.trim();
       const observacion = document.getElementById("prod-observacion").value.trim();
+
+      // Detección de duplicado en descripción o código al registrar un nuevo producto (Punto 6)
+      if (!editId) {
+        const dup = state.almacen.find(a =>
+          a.descripcion.trim().toUpperCase() === descripcion ||
+          (a.codigo || `COD${String(a.id).padStart(7, "0")}`).toUpperCase() === codigo
+        );
+        if (dup) {
+          openDuplicateProductModal(dup, descripcion);
+          return;
+        }
+      }
+
+      // Para no modificar las columnas de la tabla Supabase, persistimos el código dentro de detalles
+      const detallesConCodigo = `[COD: ${codigo}] ${detalles}`.trim();
 
       const payload = {
         descripcion,
@@ -3407,7 +4509,7 @@
         stock,
         p_compra: pCompra,
         p_venta: pVenta,
-        detalles,
+        detalles: detallesConCodigo,
         observacion
       };
 
@@ -3418,23 +4520,23 @@
             showToast("Error actualizando en Supabase: " + error.message, "warning");
             return;
           }
-          showToast(`Repuesto "${descripcion}" actualizado en Supabase`, "success");
+          showToast(`Repuesto "${descripcion}" (${codigo}) actualizado en Supabase`, "success");
         } else {
           const { error } = await supabaseClient.from("almacen").insert([payload]);
           if (error) {
             showToast("Error guardando en Supabase: " + error.message, "warning");
             return;
           }
-          showToast(`Nuevo repuesto "${descripcion}" guardado en Supabase`, "success");
+          showToast(`Nuevo repuesto "${descripcion}" (${codigo}) guardado en Supabase`, "success");
         }
         await syncFromSupabase(false);
       } else {
         if (editId) {
           const idx = state.almacen.findIndex(a => a.id === Number(editId));
-          if (idx !== -1) state.almacen[idx] = { ...state.almacen[idx], descripcion, compatibilidad, und, stock, pCompra, pVenta, detalles, observacion };
+          if (idx !== -1) state.almacen[idx] = { ...state.almacen[idx], codigo, descripcion, compatibilidad, und, stock, pCompra, pVenta, detalles, observacion };
         } else {
           const newId = state.almacen.reduce((max, a) => Math.max(max, a.id), 0) + 1;
-          state.almacen.push({ id: newId, descripcion, compatibilidad, und, stock, pCompra, pVenta, detalles, observacion });
+          state.almacen.push({ id: newId, codigo, descripcion, compatibilidad, und, stock, pCompra, pVenta, detalles, observacion });
         }
         saveLocalBackup();
         renderAll();
@@ -3504,6 +4606,16 @@
 
       document.getElementById("clientes-count-label").textContent = `${state.clientes.length} clientes frecuentes`;
 
+      const isAdmin = Boolean(
+        state.currentUser && (
+          state.currentUser.username.toUpperCase() === "WILLOSIRIS" ||
+          state.currentUser.username.toLowerCase() === "admin" ||
+          hasPermission("gestionar_usuarios") ||
+          hasPermission("acceso_sql") ||
+          hasPermission("eliminar_ventas")
+        )
+      );
+
       const tbody = document.getElementById("clientes-directory-tbody");
       if (state.clientes.length === 0) {
         tbody.innerHTML = `
@@ -3535,7 +4647,7 @@
               </td>
               <td class="py-3 px-4 text-right whitespace-nowrap">
                 <button onclick="jumpToClientSales('${c.codigo}')" class="text-xs text-blue-700 hover:underline mr-2">Ver historial</button>
-                <button onclick="deleteClient(${c.id})" class="text-xs text-gray-400 hover:text-red-600">Eliminar</button>
+                ${isAdmin ? `<button onclick="attemptDeleteClient(${c.id})" class="text-xs text-gray-400 hover:text-red-600">Eliminar</button>` : ""}
               </td>
             </tr>
           `;
@@ -3551,6 +4663,22 @@
       const nombre = document.getElementById("new-client-nombre").value.trim();
       const telefono = document.getElementById("new-client-telefono").value.trim();
       if (!codigo) return;
+
+      // Detección de duplicado al registrar un nuevo cliente (Punto 6 y comentario usuario)
+      const dup = state.clientes.find(c => {
+        if (c.codigo.toUpperCase() === codigo) return true;
+        if (nombre) {
+          const existingNom = (c.nombre || "").trim().toUpperCase();
+          if (existingNom === nombre.toUpperCase() || existingNom.startsWith(nombre.toUpperCase() + " (")) {
+            return true;
+          }
+        }
+        return false;
+      });
+      if (dup) {
+        openDuplicateClientModal(dup);
+        return;
+      }
 
       const infoContacto = telefono ? `${nombre} (${telefono})` : nombre;
 
@@ -3577,6 +4705,25 @@
       document.getElementById("new-client-nombre").value = "";
       document.getElementById("new-client-telefono").value = "";
       showToast(`Cliente frecuente ${codigo} guardado en Supabase`, "success");
+    }
+
+    function attemptDeleteClient(id) {
+      const c = state.clientes.find(x => x.id === id);
+      if (!c) return;
+      const debtMap = getClientDebtMap();
+      const dInfo = debtMap[c.codigo.toUpperCase()] || { saldo: 0, pendingCount: 0 };
+      const debtWarning = dInfo.saldo > 0 ? ` ADVERTENCIA: Este cliente mantiene una deuda acumulada de ${formatMoney(dInfo.saldo)}.` : "";
+
+      showConfirmActionModal({
+        type: "delete",
+        title: "Eliminar Cliente Frecuente",
+        message: `¿Estás seguro de eliminar al cliente "${c.codigo}" (${c.nombre || c.origen})?${debtWarning}`,
+        detail: "Se removerá del directorio de clientes y de Supabase. Los registros de ventas pasadas se conservarán.",
+        confirmText: "Eliminar Cliente Definitivamente",
+        onConfirm: () => {
+          deleteClient(id);
+        }
+      });
     }
 
     async function deleteClient(id) {
@@ -3744,11 +4891,41 @@ CREATE TABLE IF NOT EXISTS usuarios (
             <input type="checkbox" ${u.permissions.gestionar_usuarios ? "checked" : ""} onchange="toggleUserPerm(${u.id}, 'gestionar_usuarios', this.checked)" class="rounded border-gray-300 text-[#101929] cursor-pointer" />
           </td>
           <td class="py-3 px-4 text-right whitespace-nowrap">
-            <button onclick="loadUserIntoForm(${u.id})" class="text-xs text-blue-700 hover:underline mr-2 font-medium">Cambiar Clave / Editar</button>
-            ${u.username.toUpperCase() !== "WILLOSIRIS" ? `<button onclick="deleteUser(${u.id})" class="text-xs text-red-600 hover:underline">Eliminar</button>` : ""}
+            <button onclick="confirmarEdicionUsuario(${u.id})" class="text-xs text-blue-700 hover:underline mr-2 font-medium">Cambiar Clave / Editar</button>
+            ${u.username.toUpperCase() !== "WILLOSIRIS" ? `<button onclick="attemptDeleteUser(${u.id})" class="text-xs text-red-600 hover:underline">Eliminar</button>` : ""}
           </td>
         </tr>
       `).join("");
+    }
+
+    function confirmarEdicionUsuario(userId) {
+      const usr = state.usuarios.find(u => u.id === userId);
+      if (!usr) return;
+      showConfirmActionModal({
+        type: "edit",
+        title: "Editar Datos de Usuario",
+        message: `Estás a punto de modificar las credenciales y permisos del usuario "${usr.username}" (${usr.role}).`,
+        detail: "Asegúrate de no compartir contraseñas administrativas.",
+        confirmText: "Cargar Ficha para Editar",
+        onConfirm: () => {
+          loadUserIntoForm(userId);
+        }
+      });
+    }
+
+    function attemptDeleteUser(userId) {
+      const usr = state.usuarios.find(u => u.id === userId);
+      if (!usr || usr.username.toUpperCase() === "WILLOSIRIS") return;
+      showConfirmActionModal({
+        type: "delete",
+        title: "Eliminar Usuario",
+        message: `¿Estás seguro de eliminar permanentemente al usuario "${usr.username}" (${usr.role})?`,
+        detail: "El usuario perderá inmediatamente el acceso al sistema ANAROSA y se eliminará de Supabase.",
+        confirmText: "Eliminar Usuario Definitivamente",
+        onConfirm: () => {
+          deleteUser(userId);
+        }
+      });
     }
 
     async function toggleUserPerm(userId, permKey, val) {
@@ -3881,6 +5058,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     function renderAll() {
       updateSidebarCounters();
       populateVentasFilterDropdowns();
+      populateMarcasFilter();
       renderInicio();
       renderBuscarCatalog();
       renderPosView();
@@ -3896,7 +5074,24 @@ CREATE TABLE IF NOT EXISTS usuarios (
       loadLocalBackup();
       initSupabaseClient();
       initLoginScreen();
+      const restored = restoreActiveSession();
+      renderAll();
       await syncFromSupabase(false);
+      if (restored && state.currentUser) {
+        const fresh = state.usuarios.find(u => u.username.toLowerCase() === state.currentUser.username.toLowerCase());
+        if (fresh) {
+          state.currentUser = fresh;
+          try {
+            localStorage.setItem("anarosa_session_user", JSON.stringify({
+              id: fresh.id,
+              username: fresh.username,
+              role: fresh.role,
+              permissions: fresh.permissions
+            }));
+          } catch (e) {}
+        }
+        updateUserUI();
+      }
       renderAll();
     };
   </script>
