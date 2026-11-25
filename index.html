@@ -231,106 +231,116 @@
   </div>
 
   <!-- =========================================================================
-       SIDEBAR IZQUIERDO DE NAVEGACIÓN
+       BACKDROP MÓVIL Y SIDEBAR IZQUIERDO DE NAVEGACIÓN (FIJO EN PC / DRAWER EN MÓVIL)
        ========================================================================= -->
-  <aside id="sidebar" class="sidebar-navy w-full md:w-64 md:min-h-[100dvh] flex-shrink-0 p-3.5 flex flex-col justify-between hidden md:flex select-none z-40 no-print md:sticky md:top-0 md:h-[100dvh] overflow-y-auto">
-    <div>
+  <div id="sidebar-backdrop" onclick="closeMobileSidebar()" class="no-print" aria-hidden="true"></div>
+
+  <aside id="sidebar" class="sidebar-navy p-3.5 select-none no-print" aria-label="Menú lateral principal">
+    <!-- Cabecera Fija del Sidebar (Identidad Comercial + Botón Cerrar en Celular) -->
+    <div class="flex-shrink-0">
+      <div class="flex items-center justify-between md:hidden mb-2.5 px-1">
+        <span class="text-[10px] font-bold tracking-[0.18em] text-amber-400 uppercase">Menú de Navegación</span>
+        <button type="button" onclick="closeMobileSidebar()" class="p-1.5 rounded-xl bg-slate-800/90 text-slate-300 hover:text-white border border-slate-700" aria-label="Cerrar menú lateral">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
       <!-- Tarjeta de Identidad Comercial -->
-      <div class="bg-white/95 dark:bg-slate-900/90 rounded-2xl p-4 mb-4 flex flex-col items-center justify-center text-center shadow-md border border-white/10">
-        <div id="sidebar-brand-logo-wrap" class="w-16 h-16 mb-2 flex items-center justify-center overflow-hidden rounded-xl">
+      <div class="bg-white/95 dark:bg-slate-900/90 rounded-2xl p-3.5 mb-3 flex flex-col items-center justify-center text-center shadow-md border border-white/10">
+        <div id="sidebar-brand-logo-wrap" class="w-14 h-14 mb-1.5 flex items-center justify-center overflow-hidden rounded-xl">
           <!-- Inyectado por JS -->
         </div>
-        <div id="sidebar-brand-name" class="text-[#0c1424] font-display text-lg font-bold tracking-[0.14em] leading-tight">
+        <div id="sidebar-brand-name" class="text-[#0c1424] font-display text-base font-bold tracking-[0.12em] leading-tight">
           ANAROSA
         </div>
-        <div id="sidebar-brand-sub" class="text-slate-600 font-sans text-[9px] tracking-[0.2em] font-semibold mt-0.5 uppercase">
+        <div id="sidebar-brand-sub" class="text-slate-600 font-sans text-[9px] tracking-[0.16em] font-semibold mt-0.5 uppercase line-clamp-2">
           REPUESTOS Y ACCESORIOS
         </div>
       </div>
-
-      <!-- Navegación Operativa -->
-      <nav class="space-y-1 text-xs" aria-label="Navegación principal">
-        <button onclick="switchTab('inicio')" id="nav-inicio" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
-          <i data-lucide="layout-grid" class="w-4 h-4 flex-shrink-0"></i>
-          <span>Inicio</span>
-        </button>
-
-        <button onclick="switchTab('buscar')" id="nav-buscar" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
-          <i data-lucide="search" class="w-4 h-4 flex-shrink-0"></i>
-          <span class="flex-1">Buscar (Stock y Catálogo)</span>
-        </button>
-
-        <button onclick="switchTab('registrar-venta')" id="nav-registrar-venta" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
-          <i data-lucide="shopping-cart" class="w-4 h-4 flex-shrink-0"></i>
-          <div class="flex-1 flex items-center justify-between">
-            <span>Registrar Venta</span>
-            <span id="badge-cart-count" class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono tabular">0</span>
-          </div>
-        </button>
-
-        <button onclick="switchTab('historial-ventas')" id="nav-historial-ventas" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
-          <i data-lucide="file-spreadsheet" class="w-4 h-4 flex-shrink-0"></i>
-          <div class="flex-1 flex items-center justify-between">
-            <span>Historial de Ventas</span>
-            <span id="badge-por-cancelar" class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono tabular">0</span>
-          </div>
-        </button>
-
-        <button onclick="switchTab('almacen')" id="nav-almacen" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
-          <i data-lucide="package" class="w-4 h-4 flex-shrink-0"></i>
-          <span>Compras y Almacén</span>
-        </button>
-
-        <button onclick="switchTab('clientes')" id="nav-clientes" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
-          <i data-lucide="users" class="w-4 h-4 flex-shrink-0"></i>
-          <div class="flex-1 flex items-center justify-between">
-            <span>Clientes</span>
-            <span id="badge-clientes-deuda" class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300 font-mono tabular">0</span>
-          </div>
-        </button>
-
-        <!-- NUEVO APARTADO PERSONAL PRIVADO POR USUARIO -->
-        <div class="pt-2 mt-2 border-t border-slate-800/80">
-          <button onclick="switchTab('billetera')" id="nav-billetera" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
-            <i data-lucide="wallet" class="w-4 h-4 flex-shrink-0 text-amber-400"></i>
-            <div class="flex-1 flex items-center justify-between gap-1">
-              <span>Mi Billetera Diaria</span>
-              <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">PRIVADO</span>
-            </div>
-          </button>
-        </div>
-
-        <!-- SECCIÓN EXCLUSIVA DE ADMINISTRACIÓN -->
-        <div id="sidebar-admin-group" class="pt-2 mt-2 border-t border-slate-800/80 space-y-1">
-          <button onclick="switchTab('categorias-gastos')" id="nav-categorias-gastos" class="w-full hidden items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
-            <i data-lucide="tags" class="w-4 h-4 flex-shrink-0 text-sky-400"></i>
-            <div class="flex-1 flex items-center justify-between">
-              <span>Categorías Billetera</span>
-              <span class="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">ADMIN</span>
-            </div>
-          </button>
-
-          <button onclick="switchTab('administracion')" id="nav-administracion" class="w-full hidden items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
-            <i data-lucide="sliders-horizontal" class="w-4 h-4 flex-shrink-0 text-emerald-400"></i>
-            <div class="flex-1 flex items-center justify-between">
-              <span>Administración</span>
-              <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">AJUSTES</span>
-            </div>
-          </button>
-
-          <button onclick="switchTab('supabase')" id="nav-supabase" class="w-full hidden items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
-            <i data-lucide="database" class="w-4 h-4 flex-shrink-0"></i>
-            <div class="flex-1 flex items-center justify-between">
-              <span>Supabase SQL</span>
-              <i id="nav-sql-lock-icon" data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i>
-            </div>
-          </button>
-        </div>
-      </nav>
     </div>
 
-    <!-- Pie del Sidebar -->
-    <div class="mt-5 pt-3 border-t border-slate-800/80 text-xs text-slate-400 space-y-1.5 px-1">
+    <!-- Lista de Navegación con Scroll Interno Independiente -->
+    <nav id="sidebar-nav-scroll" class="sidebar-nav-scroll space-y-1 text-xs" aria-label="Navegación principal">
+      <button onclick="switchTab('inicio')" id="nav-inicio" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
+        <i data-lucide="layout-grid" class="w-4 h-4 flex-shrink-0"></i>
+        <span>Inicio</span>
+      </button>
+
+      <button onclick="switchTab('buscar')" id="nav-buscar" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
+        <i data-lucide="search" class="w-4 h-4 flex-shrink-0"></i>
+        <span class="flex-1">Buscar (Stock y Catálogo)</span>
+      </button>
+
+      <button onclick="switchTab('registrar-venta')" id="nav-registrar-venta" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
+        <i data-lucide="shopping-cart" class="w-4 h-4 flex-shrink-0"></i>
+        <div class="flex-1 flex items-center justify-between">
+          <span>Registrar Venta</span>
+          <span id="badge-cart-count" class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono tabular">0</span>
+        </div>
+      </button>
+
+      <button onclick="switchTab('historial-ventas')" id="nav-historial-ventas" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
+        <i data-lucide="file-spreadsheet" class="w-4 h-4 flex-shrink-0"></i>
+        <div class="flex-1 flex items-center justify-between">
+          <span>Historial de Ventas</span>
+          <span id="badge-por-cancelar" class="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono tabular">0</span>
+        </div>
+      </button>
+
+      <button onclick="switchTab('almacen')" id="nav-almacen" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
+        <i data-lucide="package" class="w-4 h-4 flex-shrink-0"></i>
+        <span>Compras y Almacén</span>
+      </button>
+
+      <button onclick="switchTab('clientes')" id="nav-clientes" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
+        <i data-lucide="users" class="w-4 h-4 flex-shrink-0"></i>
+        <div class="flex-1 flex items-center justify-between">
+          <span>Clientes</span>
+          <span id="badge-clientes-deuda" class="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300 font-mono tabular">0</span>
+        </div>
+      </button>
+
+      <!-- NUEVO APARTADO PERSONAL PRIVADO POR USUARIO -->
+      <div class="pt-2 mt-2 border-t border-slate-800/80">
+        <button onclick="switchTab('billetera')" id="nav-billetera" class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
+          <i data-lucide="wallet" class="w-4 h-4 flex-shrink-0 text-amber-400"></i>
+          <div class="flex-1 flex items-center justify-between gap-1">
+            <span>Mi Billetera Diaria</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">PRIVADO</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- SECCIÓN EXCLUSIVA DE ADMINISTRACIÓN -->
+      <div id="sidebar-admin-group" class="pt-2 mt-2 border-t border-slate-800/80 space-y-1">
+        <button onclick="switchTab('categorias-gastos')" id="nav-categorias-gastos" class="w-full hidden items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
+          <i data-lucide="tags" class="w-4 h-4 flex-shrink-0 text-sky-400"></i>
+          <div class="flex-1 flex items-center justify-between">
+            <span>Categorías Billetera</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">ADMIN</span>
+          </div>
+        </button>
+
+        <button onclick="switchTab('administracion')" id="nav-administracion" class="w-full hidden items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4 flex-shrink-0 text-emerald-400"></i>
+          <div class="flex-1 flex items-center justify-between">
+            <span>Administración</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">AJUSTES</span>
+          </div>
+        </button>
+
+        <button onclick="switchTab('supabase')" id="nav-supabase" class="w-full hidden items-center gap-3 px-3.5 py-2.5 rounded-xl transition text-left">
+          <i data-lucide="database" class="w-4 h-4 flex-shrink-0"></i>
+          <div class="flex-1 flex items-center justify-between">
+            <span>Supabase SQL</span>
+            <i id="nav-sql-lock-icon" data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i>
+          </div>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Pie Fijo del Sidebar -->
+    <div class="flex-shrink-0 mt-3 pt-2.5 border-t border-slate-800/80 text-xs text-slate-400 space-y-1.5 px-1">
       <div class="flex items-center justify-between">
         <span>Items en Almacén:</span>
         <span id="sidebar-total-items" class="text-white font-semibold tabular">0</span>
@@ -339,7 +349,7 @@
         <span>Unidades Totales:</span>
         <span id="sidebar-total-units" class="text-emerald-400 font-semibold tabular">0 und.</span>
       </div>
-      <button onclick="syncFromSupabase(true)" class="w-full mt-2 py-2 px-2.5 rounded-xl border border-slate-700 hover:border-amber-500 text-slate-200 hover:text-white text-[11px] flex items-center justify-center gap-1.5 transition">
+      <button onclick="syncFromSupabase(true)" class="w-full mt-1.5 py-2 px-2.5 rounded-xl border border-slate-700 hover:border-amber-500 text-slate-200 hover:text-white text-[11px] flex items-center justify-center gap-1.5 transition">
         <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
         <span>Sincronizar Nube</span>
       </button>
@@ -347,12 +357,24 @@
   </aside>
 
   <!-- =========================================================================
-       CONTENEDOR PRINCIPAL DERECHO
+       CONTENEDOR PRINCIPAL DERECHO (ÚNICO QUE HACE SCROLL)
        ========================================================================= -->
-  <div class="flex-1 flex flex-col min-w-0">
+  <div id="right-workspace" class="flex-1 flex flex-col min-w-0">
     <!-- BARRA SUPERIOR DESKTOP/TABLET -->
-    <header class="min-h-12 py-1.5 bg-white border-b border-gray-200 px-3 md:px-6 flex items-center justify-between gap-2 text-xs text-gray-600 sticky top-0 z-20 no-print">
+    <header class="min-h-12 py-1.5 bg-white border-b border-gray-200 px-3 md:px-6 flex items-center justify-between gap-2 text-xs text-gray-600 flex-shrink-0 z-20 no-print">
       <div class="flex items-center gap-1.5 min-w-0">
+        <!-- Botón para Ocultar / Mostrar la Barra Lateral Izquierda en PC -->
+        <button
+          type="button"
+          id="btn-desktop-sidebar-toggle"
+          onclick="toggleDesktopSidebar()"
+          class="hidden md:inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-700 border border-gray-200 rounded-xl px-2.5 py-1.5 bg-white hover:bg-gray-50 transition flex-shrink-0"
+          title="Ocultar o mostrar la barra de opciones izquierda"
+        >
+          <i id="desktop-sidebar-toggle-icon" data-lucide="panel-left-close" class="w-4 h-4 text-amber-600"></i>
+          <span id="desktop-sidebar-toggle-label" class="hidden xl:inline">Ocultar Menú</span>
+        </button>
+
         <span id="sync-status-badge" class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold truncate max-w-[140px] sm:max-w-none">
           <span id="sync-status-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
           <span id="sync-status-text" class="truncate">Supabase Conectado</span>
@@ -1239,7 +1261,7 @@
             </button>
             <button type="button" onclick="switchAdminSubtab('adm-marca')" data-admtab="adm-marca" class="px-3.5 py-2 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 flex items-center gap-1.5">
               <i data-lucide="palette" class="w-3.5 h-3.5"></i>
-              <span>Icono, Marca y Color</span>
+              <span>Nombre, Slogan e Iconos</span>
             </button>
             <button type="button" onclick="switchAdminSubtab('adm-privacidad')" data-admtab="adm-privacidad" class="px-3.5 py-2 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 flex items-center gap-1.5">
               <i data-lucide="shield" class="w-3.5 h-3.5"></i>
@@ -1490,14 +1512,83 @@
           </div>
         </div>
 
-        <!-- 9.3 SUB-TAB: IDENTIDAD, ICONO DE PESTAÑA (FAVICON) Y PALETA DE COLOR -->
+        <!-- 9.3 SUB-TAB: NOMBRE DE PÁGINA, SLOGAN, ICONO DE PESTAÑA (FAVICON) Y PALETA DE COLOR -->
         <div id="adm-marca" class="adm-subtab hidden space-y-6">
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div class="lg:col-span-6 app-surface p-6 space-y-5 text-xs">
-              <h3 class="text-sm font-bold text-gray-900">1. ICONO DE LA PÁGINA (PESTAÑA) Y LOGO PRINCIPAL</h3>
-              <p class="text-gray-500">Personaliza el icono de la pestaña del navegador (Favicon), el logo lateral y los datos comerciales.</p>
+              <div>
+                <h3 class="text-sm font-bold text-gray-900">1. NOMBRE DE LA PÁGINA, SLOGAN / FRASE E ICONOS</h3>
+                <p class="text-gray-500 mt-0.5">Cambia el nombre de la página/empresa, el slogan o frase que lo acompaña, el título de la pestaña del navegador y los iconos.</p>
+              </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <form onsubmit="saveBrandIdentityForm(event)" class="space-y-3.5 p-4 rounded-2xl bg-amber-50/50 border border-amber-200/80">
+                <div>
+                  <label class="block text-gray-800 font-bold mb-1">NOMBRE DE LA PÁGINA / EMPRESA *</label>
+                  <input
+                    type="text"
+                    id="cfg-brand-name"
+                    data-keep-case="true"
+                    placeholder="Ej. ANAROSA"
+                    class="input-clean w-full text-sm font-bold"
+                    required
+                    maxlength="45"
+                  />
+                  <span class="text-[10px] text-gray-500 block mt-0.5">Se muestra en el Login, en la barra izquierda, en celulares y en los comprobantes.</span>
+                </div>
+
+                <div>
+                  <label class="block text-gray-800 font-bold mb-1">SLOGAN O FRASE QUE ACOMPAÑA AL NOMBRE DE LA EMPRESA *</label>
+                  <input
+                    type="text"
+                    id="cfg-brand-sub"
+                    data-keep-case="true"
+                    placeholder="Ej. REPUESTOS Y ACCESORIOS · CALIDAD Y GARANTÍA"
+                    class="input-clean w-full text-xs font-semibold"
+                    required
+                    maxlength="90"
+                  />
+                  <span class="text-[10px] text-gray-500 block mt-0.5">Frase o lema comercial que aparece debajo del nombre de la empresa.</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-gray-700 font-semibold mb-1">TÍTULO EN LA PESTAÑA DEL NAVEGADOR (OPCIONAL)</label>
+                    <input
+                      type="text"
+                      id="cfg-page-title"
+                      data-keep-case="true"
+                      placeholder="Automático: Nombre · Slogan"
+                      class="input-clean w-full text-xs"
+                      maxlength="80"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-gray-700 font-semibold mb-1">RUC DE LA EMPRESA (OPCIONAL)</label>
+                    <input
+                      type="text"
+                      id="cfg-brand-ruc"
+                      inputmode="numeric"
+                      data-numpad="integer"
+                      data-numpad-label="Número de RUC"
+                      maxlength="11"
+                      placeholder="Ej. 20600000001"
+                      class="input-clean w-full text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 pt-1">
+                  <button type="submit" class="btn-accent px-5 py-2.5 rounded-xl flex items-center gap-1.5">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                    <span>Guardar Nombre y Slogan</span>
+                  </button>
+                  <button type="button" onclick="restoreDefaultBranding()" class="px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold">
+                    Restaurar original
+                  </button>
+                </div>
+              </form>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-200">
                 <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 flex flex-col items-center text-center gap-2.5">
                   <div id="adm-preview-logo" class="w-20 h-20 rounded-2xl bg-white border border-gray-200 p-2 flex items-center justify-center overflow-hidden shadow-sm"></div>
                   <div class="font-bold text-gray-900">Logo Principal del Sistema</div>
@@ -1512,26 +1603,6 @@
                   <button type="button" onclick="changePageFavicon()" class="w-full btn-accent py-2 px-3 rounded-xl">Cambiar Icono de Pestaña</button>
                 </div>
               </div>
-
-              <button type="button" onclick="restoreDefaultBranding()" class="text-xs text-gray-500 hover:text-gray-900 underline">
-                Restaurar logo e icono de pestaña originales de ANAROSA
-              </button>
-
-              <form onsubmit="saveBrandIdentityForm(event)" class="space-y-3 pt-3 border-t border-gray-200">
-                <div>
-                  <label class="block text-gray-700 font-semibold mb-1">NOMBRE COMERCIAL DE LA PÁGINA *</label>
-                  <input type="text" id="cfg-brand-name" placeholder="ANAROSA" class="input-clean w-full text-xs font-bold" required maxlength="40" />
-                </div>
-                <div>
-                  <label class="block text-gray-700 font-semibold mb-1">SUBTÍTULO / RUBRO *</label>
-                  <input type="text" id="cfg-brand-sub" placeholder="REPUESTOS Y ACCESORIOS" class="input-clean w-full text-xs" required maxlength="60" />
-                </div>
-                <div>
-                  <label class="block text-gray-700 font-semibold mb-1">RUC DE LA EMPRESA (OPCIONAL)</label>
-                  <input type="text" id="cfg-brand-ruc" inputmode="numeric" data-numpad="integer" data-numpad-label="Número de RUC" maxlength="11" placeholder="Ej. 20600000001" class="input-clean w-full text-xs font-mono" />
-                </div>
-                <button type="submit" class="btn-accent px-5 py-2.5 rounded-xl">Guardar Identidad Comercial</button>
-              </form>
             </div>
 
             <div class="lg:col-span-6 app-surface p-6 space-y-5 text-xs">
@@ -1767,11 +1838,22 @@
             </div>
 
             <div class="lg:col-span-7 app-surface p-6 flex flex-col">
-              <div class="flex items-center justify-between mb-3">
-                <h2 class="text-sm font-bold text-gray-900">2. Esquema SQL (Solo `CREATE TABLE IF NOT EXISTS` no destructivo)</h2>
-                <span id="copy-sql-feedback" class="text-xs text-emerald-600 font-bold hidden">¡Copiado!</span>
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div>
+                  <h2 class="text-sm font-bold text-gray-900">2. Comando SQL PostgreSQL / PostgREST para Supabase</h2>
+                  <p class="text-[11px] text-gray-500">100% aditivo: agrega solo las tablas nuevas de Billetera Personal, Categorías y Configuración sin tocar tus tablas existentes.</p>
+                </div>
+                <span id="copy-sql-feedback" class="text-xs text-emerald-600 font-bold hidden">¡Copiado al portapapeles!</span>
               </div>
-              <textarea id="supabase-sql-code" data-keep-case="true" readonly class="w-full flex-1 min-h-[320px] bg-[#090d16] text-slate-200 font-mono text-[11px] p-4 rounded-xl border border-slate-800 focus:outline-none leading-relaxed"></textarea>
+              <div class="flex flex-wrap gap-1.5 mb-3">
+                <button type="button" id="btn-sql-mode-new" onclick="generateSQLScript('NEW_ONLY')" class="px-3 py-1.5 rounded-xl text-xs font-bold btn-accent">
+                  Solo Tablas Nuevas (Gastos, Categorías y Config)
+                </button>
+                <button type="button" id="btn-sql-mode-full" onclick="generateSQLScript('FULL')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200">
+                  Esquema Completo (Originales + Nuevas)
+                </button>
+              </div>
+              <textarea id="supabase-sql-code" data-keep-case="true" readonly class="w-full flex-1 min-h-[340px] bg-[#090d16] text-slate-200 font-mono text-[11px] p-4 rounded-xl border border-slate-800 focus:outline-none leading-relaxed"></textarea>
             </div>
           </div>
         </div>
