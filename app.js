@@ -149,6 +149,7 @@ function createDefaultAdminConfig() {
     brand: {
       name: "ANAROSA",
       subtitle: "REPUESTOS Y ACCESORIOS",
+      pageTitle: "",
       ruc: "",
       logoDataUrl: "",
       faviconDataUrl: "favicon.svg"
@@ -289,11 +290,35 @@ function loadAdminConfig() {
   }
 }
 
-function saveAdminConfig() {
+function saveAdminConfig(syncCloud = true) {
   try {
     localStorage.setItem(ADMIN_CONFIG_KEY, JSON.stringify(adminConfig));
   } catch (e) {
     console.warn("Aviso guardando configuración local:", e);
+  }
+  if (syncCloud) {
+    saveAdminConfigToCloud();
+  }
+}
+
+async function saveAdminConfigToCloud() {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from("configuracion_sistema").upsert([{
+      id: 1,
+      page_name: adminConfig.brand.name || "ANAROSA",
+      company_slogan: adminConfig.brand.subtitle || "REPUESTOS Y ACCESORIOS",
+      page_title: adminConfig.brand.pageTitle || "",
+      company_ruc: adminConfig.brand.ruc || "",
+      logo_data_url: adminConfig.brand.logoDataUrl || "",
+      favicon_data_url: adminConfig.brand.faviconDataUrl || "favicon.svg",
+      theme: adminConfig.theme || "light",
+      accent: adminConfig.accent || "amber",
+      config_json: adminConfig,
+      updated_at: new Date().toISOString()
+    }], { onConflict: "id" });
+  } catch (_) {
+    // Si la tabla nueva aún no fue ejecutada en Supabase SQL Editor, continúa en localStorage sin error
   }
 }
 
@@ -378,8 +403,9 @@ function togglePrivacyBlur() {
 
 function applyBrandIdentityToDOM() {
   const b = adminConfig.brand;
-  const brandName = (b.name || "ANAROSA").toUpperCase();
-  const brandSub = (b.subtitle || "REPUESTOS Y ACCESORIOS").toUpperCase();
+  const brandName = (b.name || "ANAROSA").trim() || "ANAROSA";
+  const brandSub = (b.subtitle || "REPUESTOS Y ACCESORIOS").trim() || "REPUESTOS Y ACCESORIOS";
+  const customPageTitle = (b.pageTitle || "").trim();
   const logoHtml = b.logoDataUrl
     ? `<img src="${escHtml(b.logoDataUrl)}" alt="${escHtml(brandName)}" class="w-full h-full object-contain" />`
     : DEFAULT_BRAND_SVG_MARKUP;
@@ -394,7 +420,7 @@ function applyBrandIdentityToDOM() {
   if (mobWrap) {
     mobWrap.innerHTML = b.logoDataUrl
       ? `<img src="${escHtml(b.logoDataUrl)}" alt="Logo" class="w-full h-full object-contain" />`
-      : `<span class="font-display font-bold text-sm">${escHtml(brandName.charAt(0) || "A")}</span>`;
+      : `<span class="font-display font-bold text-sm">${escHtml(brandName.charAt(0).toUpperCase() || "A")}</span>`;
   }
   if (admLogo) admLogo.innerHTML = logoHtml;
 
@@ -409,7 +435,7 @@ function applyBrandIdentityToDOM() {
   setTxt("mobile-brand-name", brandName);
   setTxt("mobile-brand-sub", brandSub);
 
-  document.title = `${brandName} · ${brandSub}`;
+  document.title = customPageTitle || `${brandName} · ${brandSub}`;
 
   const favHref = b.faviconDataUrl || "favicon.svg";
   const favLink = document.getElementById("faviconLink");
@@ -592,6 +618,10 @@ async function syncFromSupabase(showFeedback = false) {
       }));
     }
 
+    // Sincronización opcional y no invasiva de las 3 tablas nuevas aditivas
+    // (configuracion_sistema, billetera_categorias, billetera_personal)
+    await syncAdditiveTablesFromSupabase();
+
     saveLocalBackup();
     updateSyncStatusBadge(true, "Supabase Conectado");
     renderLoginUserCards();
@@ -605,6 +635,96 @@ async function syncFromSupabase(showFeedback = false) {
     if (showFeedback) {
       showToast("Trabajando con caché local. Verifica conexión a internet.", "warning");
     }
+  }
+}
+
+async function syncAdditiveTablesFromSupabase() {
+  if (!supabaseClient) return;
+
+  // 1. Configuración general del sistema (Nombre de página, slogan, iconos, tema)
+  try {
+    const { data: cfgData, error: cfgErr } = await supabaseClient
+      .from("configuracion_sistema")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (!cfgErr && cfgData) {
+      if (cfgData.config_json && typeof cfgData.config_json === "object") {
+        adminConfig = {
+          ...adminConfig,
+          ...cfgData.config_json,
+          brand: {
+            ...adminConfig.brand,
+            ...(cfgData.config_json.brand || {}),
+            name: cfgData.page_name || cfgData.config_json.brand?.name || adminConfig.brand.name,
+            subtitle: cfgData.company_slogan || cfgData.config_json.brand?.subtitle || adminConfig.brand.subtitle,
+            pageTitle: cfgData.page_title ?? cfgData.config_json.brand?.pageTitle ?? adminConfig.brand.pageTitle,
+            ruc: cfgData.company_ruc ?? cfgData.config_json.brand?.ruc ?? adminConfig.brand.ruc
+          }
+        };
+      } else {
+        if (cfgData.page_name) adminConfig.brand.name = cfgData.page_name;
+        if (cfgData.company_slogan) adminConfig.brand.subtitle = cfgData.company_slogan;
+        if (cfgData.page_title !== undefined) adminConfig.brand.pageTitle = cfgData.page_title || "";
+        if (cfgData.company_ruc !== undefined) adminConfig.brand.ruc = cfgData.company_ruc || "";
+      }
+      saveAdminConfig(false);
+      applyThemeAndAccent();
+      applyBrandIdentityToDOM();
+    }
+  } catch (_) {}
+
+  // 2. Categorías de Billetera Personal administradas por el Admin
+  try {
+    const { data: catRows, error: catErr } = await supabaseClient
+      .from("billetera_categorias")
+      .select("*")
+      .order("orden", { ascending: true });
+
+    if (!catErr && Array.isArray(catRows) && catRows.length > 0) {
+      adminConfig.walletCategories = catRows.map(r => ({
+        id: r.id,
+        name: r.nombre || "CATEGORÍA",
+        type: r.tipo || "GASTO",
+        icon: r.icono || "tag",
+        color: r.color || "#f59e0b"
+      }));
+      saveAdminConfig(false);
+    }
+  } catch (_) {}
+
+  // 3. Movimientos privados de Billetera Personal del usuario activo
+  if (state.currentUser && state.currentUser.username) {
+    try {
+      const uname = String(state.currentUser.username).trim();
+      const { data: wRows, error: wErr } = await supabaseClient
+        .from("billetera_personal")
+        .select("*")
+        .ilike("username", uname)
+        .order("fecha", { ascending: false })
+        .order("id", { ascending: false });
+
+      if (!wErr && Array.isArray(wRows)) {
+        const localEntries = loadMyWalletEntries();
+        if (wRows.length > 0 || localEntries.length === 0) {
+          const mapped = wRows.map(r => ({
+            id: r.id,
+            type: r.tipo || "GASTO",
+            amount: Number(r.monto) || 0,
+            catId: r.categoria_id || "cat_otros",
+            catName: r.categoria_nombre || "OTROS",
+            catColor: r.categoria_color || "#f59e0b",
+            catIcon: r.categoria_icono || "tag",
+            method: r.medio_pago || "EFECTIVO",
+            date: r.fecha || getTodayLocalISO(),
+            note: r.observacion || "",
+            createdAt: r.created_at || new Date().toISOString()
+          }));
+          saveMyWalletEntries(mapped);
+        }
+      }
+    } catch (_) {}
   }
 }
 
@@ -1255,12 +1375,88 @@ function toggleFontStyle() {
   if (lbl) lbl.textContent = state.fontEditorial ? "Fuente: Editorial" : "Fuente: Moderna";
 }
 
+function applyDesktopSidebarState() {
+  const collapsed = localStorage.getItem("anarosa_sidebar_collapsed") === "1";
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
+  setLucideIcon(
+    "desktop-sidebar-toggle-icon",
+    collapsed ? "panel-left-open" : "panel-left-close",
+    "w-4 h-4 text-amber-600"
+  );
+  const lbl = document.getElementById("desktop-sidebar-toggle-label");
+  if (lbl) lbl.textContent = collapsed ? "Mostrar Menú" : "Ocultar Menú";
+  refreshIcons();
+}
+
+function toggleDesktopSidebar() {
+  const nextCollapsed = !document.body.classList.contains("sidebar-collapsed");
+  try {
+    localStorage.setItem("anarosa_sidebar_collapsed", nextCollapsed ? "1" : "0");
+  } catch (_) {}
+  applyDesktopSidebarState();
+}
+
+function openMobileSidebar() {
+  document.body.classList.add("mobile-drawer-open");
+}
+
+function closeMobileSidebar() {
+  const sb = document.getElementById("sidebar");
+  if (sb) {
+    sb.style.transform = "";
+    sb.style.transition = "";
+  }
+  document.body.classList.remove("mobile-drawer-open");
+}
+
 function toggleMobileSidebar() {
+  if (document.body.classList.contains("mobile-drawer-open")) {
+    closeMobileSidebar();
+  } else {
+    openMobileSidebar();
+  }
+}
+
+function initSidebarTouchGestures() {
   const sb = document.getElementById("sidebar");
   if (!sb) return;
-  sb.classList.toggle("hidden");
-  sb.classList.toggle("fixed");
-  sb.classList.toggle("inset-0");
+  let dragging = false;
+  let startX = 0;
+  let startY = 0;
+  let currentDx = 0;
+
+  sb.addEventListener("pointerdown", e => {
+    if (window.innerWidth >= 768 || !document.body.classList.contains("mobile-drawer-open")) return;
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    currentDx = 0;
+    sb.style.transition = "none";
+  }, { passive: true });
+
+  sb.addEventListener("pointermove", e => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(currentDx) < 8) return;
+    if (dx < 0) {
+      currentDx = dx;
+      sb.style.transform = `translate3d(${dx}px, 0, 0)`;
+    }
+  }, { passive: true });
+
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    sb.style.transition = "";
+    sb.style.transform = "";
+    if (currentDx < -65) {
+      closeMobileSidebar();
+    }
+    currentDx = 0;
+  };
+  sb.addEventListener("pointerup", endDrag, { passive: true });
+  sb.addEventListener("pointercancel", endDrag, { passive: true });
 }
 
 const ALL_TABS = [
@@ -1309,14 +1505,17 @@ function switchTab(tabName) {
   });
 
   if (window.innerWidth < 768) {
-    const sb = document.getElementById("sidebar");
-    sb.classList.add("hidden");
-    sb.classList.remove("fixed", "inset-0");
+    closeMobileSidebar();
   }
 
   resetTabForms(tabName);
   renderActiveTab();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  const mainScroll = document.getElementById("app-scroll-main");
+  if (mainScroll) {
+    mainScroll.scrollTo({ top: 0, behavior: "smooth" });
+  } else {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   observeScrollReveals();
 }
 
@@ -3712,7 +3911,7 @@ function resetWalletForm() {
   setWalletFormType("GASTO");
 }
 
-function handleWalletSubmit(e) {
+async function handleWalletSubmit(e) {
   e.preventDefault();
   if (!state.currentUser) return;
 
@@ -3729,6 +3928,7 @@ function handleWalletSubmit(e) {
     return;
   }
   const catObj = adminConfig.walletCategories.find(c => c.id === catId) || adminConfig.walletCategories[0];
+  const uname = String(state.currentUser.username).trim();
 
   const entries = loadMyWalletEntries();
   if (editId) {
@@ -3747,10 +3947,45 @@ function handleWalletSubmit(e) {
         note
       };
     }
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from("billetera_personal").update({
+          tipo: type,
+          monto: amount,
+          categoria_id: catObj.id,
+          categoria_nombre: catObj.name,
+          categoria_color: catObj.color,
+          categoria_icono: catObj.icon,
+          medio_pago: method,
+          fecha: date,
+          observacion: note
+        }).eq("id", Number(editId)).ilike("username", uname);
+      } catch (_) {}
+    }
     showToast("Apunte actualizado en tu billetera", "success");
   } else {
+    let newEntryId = Date.now();
+    if (supabaseClient) {
+      try {
+        const { data: insRows, error: insErr } = await supabaseClient.from("billetera_personal").insert([{
+          username: uname,
+          tipo: type,
+          monto: amount,
+          categoria_id: catObj.id,
+          categoria_nombre: catObj.name,
+          categoria_color: catObj.color,
+          categoria_icono: catObj.icon,
+          medio_pago: method,
+          fecha: date,
+          observacion: note
+        }]).select();
+        if (!insErr && insRows && insRows[0] && insRows[0].id) {
+          newEntryId = insRows[0].id;
+        }
+      } catch (_) {}
+    }
     entries.unshift({
-      id: Date.now(),
+      id: newEntryId,
       type,
       amount,
       catId: catObj.id,
@@ -3785,12 +4020,22 @@ function editMyWalletEntry(entryId) {
   document.getElementById("wallet-form-heading").textContent = "EDITANDO APUNTE PERSONAL";
   document.getElementById("wallet-cancel-edit-btn").classList.remove("hidden");
   renderWalletCategorySelectorChips();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  const mainScroll = document.getElementById("app-scroll-main");
+  if (mainScroll) mainScroll.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function deleteMyWalletEntry(entryId) {
+async function deleteMyWalletEntry(entryId) {
   const entries = loadMyWalletEntries().filter(x => String(x.id) !== String(entryId));
   saveMyWalletEntries(entries);
+  if (supabaseClient && state.currentUser) {
+    try {
+      await supabaseClient
+        .from("billetera_personal")
+        .delete()
+        .eq("id", Number(entryId))
+        .ilike("username", String(state.currentUser.username).trim());
+    } catch (_) {}
+  }
   renderWalletView();
   showToast("Apunte eliminado de tu billetera", "info");
 }
@@ -4024,7 +4269,7 @@ function resetWalletCategoryForm() {
   renderWalletCategoriesAdminView();
 }
 
-function handleSaveWalletCategory(e) {
+async function handleSaveWalletCategory(e) {
   e.preventDefault();
   const editId = document.getElementById("cat-edit-id").value;
   const name = document.getElementById("cat-name-input").value.trim().toUpperCase();
@@ -4033,13 +4278,15 @@ function handleSaveWalletCategory(e) {
   const icon = document.getElementById("cat-icon-input").value || "utensils";
   if (!name) return;
 
+  const finalId = editId || ("cat_" + Date.now().toString(36));
+
   if (editId) {
     const idx = adminConfig.walletCategories.findIndex(c => c.id === editId);
     if (idx !== -1) adminConfig.walletCategories[idx] = { id: editId, name, type, color, icon };
     showToast(`Categoría "${name}" actualizada`, "success");
   } else {
     adminConfig.walletCategories.push({
-      id: "cat_" + Date.now().toString(36),
+      id: finalId,
       name,
       type,
       color,
@@ -4048,23 +4295,54 @@ function handleSaveWalletCategory(e) {
     showToast(`Categoría "${name}" agregada`, "success");
   }
 
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from("billetera_categorias").upsert([{
+        id: finalId,
+        nombre: name,
+        tipo: type,
+        color,
+        icono: icon,
+        orden: adminConfig.walletCategories.length
+      }], { onConflict: "id" });
+    } catch (_) {}
+  }
+
   saveAdminConfig();
   resetWalletCategoryForm();
 }
 
-function deleteWalletCategory(catId) {
+async function deleteWalletCategory(catId) {
   if (adminConfig.walletCategories.length <= 2) {
     showToast("Debes mantener al menos 2 categorías activas", "warning");
     return;
   }
   adminConfig.walletCategories = adminConfig.walletCategories.filter(c => c.id !== catId);
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from("billetera_categorias").delete().eq("id", catId);
+    } catch (_) {}
+  }
   saveAdminConfig();
   renderWalletCategoriesAdminView();
   showToast("Categoría eliminada", "info");
 }
 
-function restoreDefaultWalletCategories() {
+async function restoreDefaultWalletCategories() {
   adminConfig.walletCategories = JSON.parse(JSON.stringify(DEFAULT_WALLET_CATEGORIES));
+  if (supabaseClient) {
+    try {
+      const rows = adminConfig.walletCategories.map((c, i) => ({
+        id: c.id,
+        nombre: c.name,
+        tipo: c.type,
+        color: c.color,
+        icono: c.icon,
+        orden: i + 1
+      }));
+      await supabaseClient.from("billetera_categorias").upsert(rows, { onConflict: "id" });
+    } catch (_) {}
+  }
   saveAdminConfig();
   renderWalletCategoriesAdminView();
   showToast("Categorías predeterminadas restauradas", "success");
@@ -4511,22 +4789,56 @@ function testPrintCurrentTemplate() {
   }
 }
 
-// 12.3 IDENTIDAD, ICONO DE PESTAÑA (FAVICON) Y LOGO
+// 12.3 NOMBRE DE LA PÁGINA, SLOGAN, ICONO DE PESTAÑA (FAVICON) Y LOGO
 function populateAdminBrandForm() {
-  document.getElementById("cfg-brand-name").value = adminConfig.brand.name || "ANAROSA";
-  document.getElementById("cfg-brand-sub").value = adminConfig.brand.subtitle || "REPUESTOS Y ACCESORIOS";
-  document.getElementById("cfg-brand-ruc").value = adminConfig.brand.ruc || "";
+  const nameEl = document.getElementById("cfg-brand-name");
+  const subEl = document.getElementById("cfg-brand-sub");
+  const titleEl = document.getElementById("cfg-page-title");
+  const rucEl = document.getElementById("cfg-brand-ruc");
+
+  if (nameEl) nameEl.value = adminConfig.brand.name || "ANAROSA";
+  if (subEl) subEl.value = adminConfig.brand.subtitle || "REPUESTOS Y ACCESORIOS";
+  if (titleEl) titleEl.value = adminConfig.brand.pageTitle || "";
+  if (rucEl) rucEl.value = adminConfig.brand.ruc || "";
   applyBrandIdentityToDOM();
 }
 
 function saveBrandIdentityForm(e) {
   e.preventDefault();
-  adminConfig.brand.name = document.getElementById("cfg-brand-name").value.trim().toUpperCase() || "ANAROSA";
-  adminConfig.brand.subtitle = document.getElementById("cfg-brand-sub").value.trim().toUpperCase() || "REPUESTOS Y ACCESORIOS";
-  adminConfig.brand.ruc = document.getElementById("cfg-brand-ruc").value.trim();
+  const prevName = (adminConfig.brand.name || "ANAROSA").trim().toUpperCase();
+  const newName = (document.getElementById("cfg-brand-name").value || "").trim() || "ANAROSA";
+  const newSub = (document.getElementById("cfg-brand-sub").value || "").trim() || "REPUESTOS Y ACCESORIOS";
+  const newTitle = (document.getElementById("cfg-page-title")?.value || "").trim();
+  const newRuc = (document.getElementById("cfg-brand-ruc").value || "").trim();
+
+  adminConfig.brand.name = newName;
+  adminConfig.brand.subtitle = newSub;
+  adminConfig.brand.pageTitle = newTitle;
+  adminConfig.brand.ruc = newRuc;
+
+  // Sincronizar también el encabezado de tickets si mantenían el nombre anterior
+  ["cliente", "interno", "a4"].forEach(k => {
+    const tpl = adminConfig.printing?.templates?.[k];
+    if (tpl && (!tpl.brandTitle || tpl.brandTitle.toUpperCase() === prevName)) {
+      tpl.brandTitle = newName.toUpperCase();
+    }
+  });
+
   saveAdminConfig();
   applyBrandIdentityToDOM();
-  showToast("Identidad comercial actualizada", "success");
+  renderPrinterLivePreview();
+  showToast("Nombre de página y slogan actualizados con éxito", "success");
+}
+
+function restoreDefaultBranding() {
+  adminConfig.brand.logoDataUrl = "";
+  adminConfig.brand.faviconDataUrl = "favicon.svg";
+  adminConfig.brand.name = "ANAROSA";
+  adminConfig.brand.subtitle = "REPUESTOS Y ACCESORIOS";
+  adminConfig.brand.pageTitle = "";
+  saveAdminConfig();
+  populateAdminBrandForm();
+  showToast("Nombre, slogan, logo e icono originales restaurados", "info");
 }
 
 async function changeBrandLogo() {
@@ -4556,16 +4868,6 @@ async function changePageFavicon() {
     applyBrandIdentityToDOM();
     showToast("Icono de la pestaña (Favicon) actualizado", "success");
   }
-}
-
-function restoreDefaultBranding() {
-  adminConfig.brand.logoDataUrl = "";
-  adminConfig.brand.faviconDataUrl = "favicon.svg";
-  adminConfig.brand.name = "ANAROSA";
-  adminConfig.brand.subtitle = "REPUESTOS Y ACCESORIOS";
-  saveAdminConfig();
-  populateAdminBrandForm();
-  showToast("Logo e icono originales restaurados", "info");
 }
 
 // 12.4 PRIVACIDAD Y MÉTODO DE TRABAJO
@@ -4802,9 +5104,129 @@ function handleUnlockSupabaseGate(e) {
   showToast("Panel Supabase SQL desbloqueado", "success");
 }
 
-function generateSQLScript() {
-  const sql = `-- ESQUEMA OFICIAL ANAROSA (NO DESTRUCTIVO - RESPETA TUS DATOS EXISTENTES)
-CREATE TABLE IF NOT EXISTS almacen (
+let currentSqlScriptMode = "NEW_ONLY";
+
+function getNewAdditiveTablesSQL() {
+  return `-- ============================================================================
+-- SCRIPT SQL POSTGRESQL / POSTGREST PARA SUPABASE (100% ADITIVO Y SEGURO)
+-- IMPORTANTE: NO MODIFICA, NO ALTERA NI BORRA TUS TABLAS EXISTENTES
+-- (almacen, clientes, ventas, compras, usuarios permanecen 100% intactas)
+-- ============================================================================
+
+-- 1. TABLA DE CATEGORÍAS DE BILLETERA (ADMINISTRADAS POR EL ADMIN)
+CREATE TABLE IF NOT EXISTS public.billetera_categorias (
+  id TEXT PRIMARY KEY,
+  nombre TEXT NOT NULL,
+  tipo TEXT NOT NULL DEFAULT 'GASTO' CHECK (tipo IN ('GASTO', 'INGRESO', 'AMBOS')),
+  icono TEXT NOT NULL DEFAULT 'utensils',
+  color TEXT NOT NULL DEFAULT '#f59e0b',
+  orden INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Semilla inicial de categorías (no sobrescribe si ya existen)
+INSERT INTO public.billetera_categorias (id, nombre, tipo, icono, color, orden) VALUES
+  ('cat_alim',   'ALIMENTACIÓN',         'GASTO',   'utensils',    '#f59e0b', 1),
+  ('cat_trans',  'TRANSPORTE / PASAJES', 'GASTO',   'bus',         '#3b82f6', 2),
+  ('cat_hogar',  'HOGAR Y SERVICIOS',    'GASTO',   'home',        '#8b5cf6', 3),
+  ('cat_salud',  'SALUD Y FARMACIA',     'GASTO',   'heart-pulse', '#ef4444', 4),
+  ('cat_comp',   'COMPRAS PERSONALES',   'GASTO',   'shopping-bag','#ec4899', 5),
+  ('cat_ocio',   'SALIDAS / ANTOJOS',    'GASTO',   'coffee',      '#14b8a6', 6),
+  ('cat_cel',    'RECARGAS / INTERNET',  'GASTO',   'smartphone',  '#06b6d4', 7),
+  ('cat_otros',  'OTROS GASTOS',         'GASTO',   'wrench',      '#64748b', 8),
+  ('cat_sueldo', 'SUELDO / PAGO',        'INGRESO', 'wallet',      '#10b981', 9),
+  ('cat_extra',  'INGRESO EXTRA',        'INGRESO', 'trending-up', '#059669', 10),
+  ('cat_ahorro', 'AHORRO / RESERVA',     'AMBOS',   'piggy-bank',  '#eab308', 11)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. TABLA DE BILLETERA PERSONAL DIARIA (PRIVADA POR CADA USUARIO)
+CREATE TABLE IF NOT EXISTS public.billetera_personal (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  username TEXT NOT NULL,
+  tipo TEXT NOT NULL DEFAULT 'GASTO' CHECK (tipo IN ('GASTO', 'INGRESO')),
+  monto NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (monto >= 0),
+  categoria_id TEXT DEFAULT 'cat_otros' REFERENCES public.billetera_categorias(id) ON DELETE SET NULL,
+  categoria_nombre TEXT NOT NULL DEFAULT 'OTROS GASTOS',
+  categoria_color TEXT NOT NULL DEFAULT '#f59e0b',
+  categoria_icono TEXT NOT NULL DEFAULT 'utensils',
+  medio_pago TEXT NOT NULL DEFAULT 'EFECTIVO',
+  fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+  observacion TEXT DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_billetera_personal_user_fecha
+  ON public.billetera_personal (username, fecha DESC);
+
+-- 3. TABLA DE CONFIGURACIÓN E IDENTIDAD DE LA PÁGINA (NOMBRE, SLOGAN, TEMA, TICKETS)
+CREATE TABLE IF NOT EXISTS public.configuracion_sistema (
+  id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  page_name TEXT NOT NULL DEFAULT 'ANAROSA',
+  company_slogan TEXT NOT NULL DEFAULT 'REPUESTOS Y ACCESORIOS',
+  page_title TEXT DEFAULT '',
+  company_ruc TEXT DEFAULT '',
+  logo_data_url TEXT DEFAULT '',
+  favicon_data_url TEXT DEFAULT 'favicon.svg',
+  theme TEXT NOT NULL DEFAULT 'light',
+  accent TEXT NOT NULL DEFAULT 'amber',
+  config_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO public.configuracion_sistema (id, page_name, company_slogan)
+VALUES (1, 'ANAROSA', 'REPUESTOS Y ACCESORIOS')
+ON CONFLICT (id) DO NOTHING;
+
+-- 4. PERMISOS POSTGREST / RLS PARA ACCESO DESDE LA APP WEB (ANON / AUTHENTICATED)
+ALTER TABLE public.billetera_categorias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.billetera_personal ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.configuracion_sistema ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "acceso_postgrest_billetera_categorias" ON public.billetera_categorias;
+CREATE POLICY "acceso_postgrest_billetera_categorias"
+  ON public.billetera_categorias FOR ALL
+  TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "acceso_postgrest_billetera_personal" ON public.billetera_personal;
+CREATE POLICY "acceso_postgrest_billetera_personal"
+  ON public.billetera_personal FOR ALL
+  TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "acceso_postgrest_configuracion_sistema" ON public.configuracion_sistema;
+CREATE POLICY "acceso_postgrest_configuracion_sistema"
+  ON public.configuracion_sistema FOR ALL
+  TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+
+GRANT ALL ON TABLE public.billetera_categorias TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.billetera_personal TO anon, authenticated, service_role;
+GRANT USAGE, SELECT ON SEQUENCE public.billetera_personal_id_seq TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.configuracion_sistema TO anon, authenticated, service_role;
+
+-- Recargar caché de esquema de PostgREST en Supabase
+NOTIFY pgrst, 'reload schema';`;
+}
+
+function generateSQLScript(mode = currentSqlScriptMode) {
+  currentSqlScriptMode = mode || "NEW_ONLY";
+  const btnNew = document.getElementById("btn-sql-mode-new");
+  const btnFull = document.getElementById("btn-sql-mode-full");
+  if (btnNew && btnFull) {
+    btnNew.className = currentSqlScriptMode === "NEW_ONLY"
+      ? "px-3 py-1.5 rounded-xl text-xs font-bold btn-accent"
+      : "px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200";
+    btnFull.className = currentSqlScriptMode === "FULL"
+      ? "px-3 py-1.5 rounded-xl text-xs font-bold btn-accent"
+      : "px-3 py-1.5 rounded-xl text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200";
+  }
+
+  const originalTablesSql = `-- TABLAS COMERCIALES EXISTENTES (NO SE MODIFICAN SI YA EXISTEN)
+CREATE TABLE IF NOT EXISTS public.almacen (
   id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
   descripcion TEXT NOT NULL,
   compatibilidad TEXT DEFAULT 'GENERAL',
@@ -4817,7 +5239,7 @@ CREATE TABLE IF NOT EXISTS almacen (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS clientes (
+CREATE TABLE IF NOT EXISTS public.clientes (
   id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
   origen TEXT NOT NULL,
   cod TEXT NOT NULL UNIQUE,
@@ -4825,7 +5247,7 @@ CREATE TABLE IF NOT EXISTS clientes (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS ventas (
+CREATE TABLE IF NOT EXISTS public.ventas (
   id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
   ticket TEXT,
   descripcion TEXT NOT NULL,
@@ -4841,9 +5263,9 @@ CREATE TABLE IF NOT EXISTS ventas (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS compras (
+CREATE TABLE IF NOT EXISTS public.compras (
   id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-  repuesto_id BIGINT REFERENCES almacen(id) ON DELETE SET NULL,
+  repuesto_id BIGINT REFERENCES public.almacen(id) ON DELETE SET NULL,
   repuesto_nombre TEXT NOT NULL,
   cantidad INT NOT NULL DEFAULT 1,
   costo_uni NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -4853,7 +5275,7 @@ CREATE TABLE IF NOT EXISTS compras (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS usuarios (
+CREATE TABLE IF NOT EXISTS public.usuarios (
   id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
   username TEXT NOT NULL UNIQUE,
   password TEXT NOT NULL,
@@ -4862,7 +5284,12 @@ CREATE TABLE IF NOT EXISTS usuarios (
   perm_edit_prices BOOLEAN DEFAULT FALSE,
   perm_sql BOOLEAN DEFAULT FALSE,
   perm_users BOOLEAN DEFAULT FALSE
-);`;
+);
+
+`;
+
+  const additiveSql = getNewAdditiveTablesSQL();
+  const sql = currentSqlScriptMode === "FULL" ? (originalTablesSql + additiveSql) : additiveSql;
   const area = document.getElementById("supabase-sql-code");
   if (area) area.value = sql;
 }
@@ -4939,15 +5366,21 @@ function initArtcraftScrollEngine() {
     rulerDigitCols = Array.from(digitsWrap.querySelectorAll(".ruler-digit-col"));
   }
 
-  // 3. Scrub interactivo en la regla lateral (PC)
+  // 3. Scrub interactivo en la regla lateral (PC) sobre el contenedor derecho #app-scroll-main
   const ruler = document.getElementById("artcraft-ruler");
+  const mainScroll = document.getElementById("app-scroll-main");
   if (ruler) {
     let scrubbing = false;
     const scrubToClientY = clientY => {
       const rect = ruler.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / Math.max(1, rect.height)));
-      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-      window.scrollTo({ top: ratio * maxScroll, behavior: "auto" });
+      if (mainScroll && mainScroll.scrollHeight > mainScroll.clientHeight) {
+        const maxScroll = Math.max(0, mainScroll.scrollHeight - mainScroll.clientHeight);
+        mainScroll.scrollTo({ top: ratio * maxScroll, behavior: "auto" });
+      } else {
+        const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        window.scrollTo({ top: ratio * maxScroll, behavior: "auto" });
+      }
     };
     ruler.addEventListener("pointerdown", e => {
       scrubbing = true;
@@ -4960,7 +5393,7 @@ function initArtcraftScrollEngine() {
     ruler.addEventListener("pointerup", () => { scrubbing = false; });
   }
 
-  // 4. Listener pasivo con requestAnimationFrame (cero bloqueo de main thread)
+  // 4. Listener pasivo con requestAnimationFrame en #app-scroll-main y window
   const onScrollOrResize = () => {
     if (scrollRafPending) return;
     scrollRafPending = true;
@@ -4970,6 +5403,9 @@ function initArtcraftScrollEngine() {
     });
   };
 
+  if (mainScroll) {
+    mainScroll.addEventListener("scroll", onScrollOrResize, { passive: true });
+  }
   window.addEventListener("scroll", onScrollOrResize, { passive: true });
   window.addEventListener("resize", onScrollOrResize, { passive: true });
   updateArtcraftScrollTelemetry();
@@ -4977,8 +5413,17 @@ function initArtcraftScrollEngine() {
 }
 
 function updateArtcraftScrollTelemetry() {
-  const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-  const current = Math.max(0, window.scrollY || window.pageYOffset || 0);
+  const mainScroll = document.getElementById("app-scroll-main");
+  let maxScroll = 0;
+  let current = 0;
+
+  if (mainScroll && mainScroll.scrollHeight > mainScroll.clientHeight + 2) {
+    maxScroll = Math.max(0, mainScroll.scrollHeight - mainScroll.clientHeight);
+    current = Math.max(0, mainScroll.scrollTop || 0);
+  } else {
+    maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    current = Math.max(0, window.scrollY || window.pageYOffset || 0);
+  }
   const progress = maxScroll > 4 ? Math.min(1, current / maxScroll) : 0;
 
   const topBar = document.getElementById("scroll-progress-bar");
@@ -5046,6 +5491,8 @@ function observeScrollReveals() {
 window.addEventListener("DOMContentLoaded", async () => {
   applyThemeAndAccent();
   applyBrandIdentityToDOM();
+  applyDesktopSidebarState();
+  initSidebarTouchGestures();
   initCropperDragEvents();
   initArtcraftScrollEngine();
 
