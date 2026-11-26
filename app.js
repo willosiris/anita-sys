@@ -17,6 +17,7 @@ const DEFAULT_SUPABASE_KEY = "sb_publishable_Ds4IYaHux6yT2koNicw4Ug_OoZYyCQ_";
 const STORAGE_KEY = "anarosa_erp_clean_supabase_v3";
 const ADMIN_CONFIG_KEY = "anarosa_admin_config_v4";
 const WALLET_PREFIX_KEY = "anarosa_wallet_private_v1_";
+const WALLET_LOANS_PREFIX_KEY = "anarosa_wallet_loans_v1_";
 
 const INITIAL_USUARIOS = [
   {
@@ -152,10 +153,14 @@ function createDefaultAdminConfig() {
       pageTitle: "",
       ruc: "",
       logoDataUrl: "",
-      faviconDataUrl: "favicon.svg"
+      faviconDataUrl: "favicon.svg",
+      colorMode: "AUTO",
+      colorLight: "#0c1424",
+      colorDark: "#f8fafc"
     },
     userAvatars: {},
     userPrintPerm: {},
+    userReadOnly: {},
     printing: {
       usarTicketCliente: true,
       autoPrintOnSale: false,
@@ -163,12 +168,12 @@ function createDefaultAdminConfig() {
       a4ColorMode: "color",
       templates: {
         cliente: createDefaultPrinterTemplate("cliente"),
-        interno: createDefaultPrinterTemplate("interno"),
         a4: createDefaultPrinterTemplate("a4")
       }
     },
     privacy: {
       inactivityMinutes: 15,
+      lockLogoutMinutes: 3,
       maskPasswords: true,
       lockoutAfter3Tries: true,
       privacyBlurDefault: false,
@@ -209,6 +214,8 @@ let state = {
   posCart: [],
   posSelectedClient: null,
   walletPeriod: "MES",
+  walletLoanFilter: "PENDIENTES",
+  printPreviewZoom: 1,
   tempUserFormAvatar: "",
   revealedUserPasswords: {}
 };
@@ -219,9 +226,13 @@ let isSupabaseOnline = false;
 let failedLoginAttempts = 0;
 let loginLockoutUntil = 0;
 let loginLockoutInterval = null;
+let selectedLoginPinUser = null;
+let loginPinBuffer = "";
 
 let inactivityRemainingSeconds = getInactivityLimitSeconds();
 let inactivityInterval = null;
+let lockAutoLogoutInterval = null;
+let lockAutoLogoutRemainingSeconds = 180;
 let isSessionLocked = false;
 let pendingAdminCallback = null;
 
@@ -270,12 +281,12 @@ function loadAdminConfig() {
       brand: { ...base.brand, ...(parsed.brand || {}) },
       userAvatars: { ...(parsed.userAvatars || {}) },
       userPrintPerm: { ...(parsed.userPrintPerm || {}) },
+      userReadOnly: { ...(parsed.userReadOnly || {}) },
       printing: {
         ...base.printing,
         ...(parsed.printing || {}),
         templates: {
           cliente: { ...base.printing.templates.cliente, ...(parsed.printing?.templates?.cliente || {}) },
-          interno: { ...base.printing.templates.interno, ...(parsed.printing?.templates?.interno || {}) },
           a4: { ...base.printing.templates.a4, ...(parsed.printing?.templates?.a4 || {}) }
         }
       },
@@ -413,16 +424,28 @@ function applyBrandIdentityToDOM() {
   const loginWrap = document.getElementById("login-brand-logo-wrap");
   const sideWrap = document.getElementById("sidebar-brand-logo-wrap");
   const mobWrap = document.getElementById("mobile-brand-logo-wrap");
+  const headWrap = document.getElementById("header-brand-logo-wrap");
   const admLogo = document.getElementById("adm-preview-logo");
 
   if (loginWrap) loginWrap.innerHTML = logoHtml;
   if (sideWrap) sideWrap.innerHTML = logoHtml;
-  if (mobWrap) {
-    mobWrap.innerHTML = b.logoDataUrl
-      ? `<img src="${escHtml(b.logoDataUrl)}" alt="Logo" class="w-full h-full object-contain" />`
-      : `<span class="font-display font-bold text-sm">${escHtml(brandName.charAt(0).toUpperCase() || "A")}</span>`;
-  }
+  if (mobWrap) mobWrap.innerHTML = logoHtml;
+  if (headWrap) headWrap.innerHTML = logoHtml;
   if (admLogo) admLogo.innerHTML = logoHtml;
+
+  // Color del nombre de la página adaptable a Modo Día y Modo Noche
+  const colorMode = b.colorMode || "AUTO";
+  let lightColor = "#0c1424";
+  let darkColor = "#f8fafc";
+  if (colorMode === "ACCENT") {
+    lightColor = "var(--accent)";
+    darkColor = "var(--accent)";
+  } else if (colorMode === "CUSTOM") {
+    lightColor = b.colorLight || "#0c1424";
+    darkColor = b.colorDark || "#f8fafc";
+  }
+  document.documentElement.style.setProperty("--brand-name-light", lightColor);
+  document.documentElement.style.setProperty("--brand-name-dark", darkColor);
 
   const setTxt = (id, val) => {
     const el = document.getElementById(id);
@@ -434,6 +457,7 @@ function applyBrandIdentityToDOM() {
   setTxt("sidebar-brand-sub", brandSub);
   setTxt("mobile-brand-name", brandName);
   setTxt("mobile-brand-sub", brandSub);
+  setTxt("header-brand-name", brandName);
 
   document.title = customPageTitle || `${brandName} · ${brandSub}`;
 
@@ -445,6 +469,24 @@ function applyBrandIdentityToDOM() {
   }
   const admFav = document.getElementById("adm-preview-favicon");
   if (admFav) admFav.src = favHref;
+}
+
+function isUserReadOnly(userObj) {
+  if (!userObj) return false;
+  if (String(userObj.username).toUpperCase() === "WILLOSIRIS") return false;
+  const key = String(userObj.username).trim().toLowerCase();
+  if (key in (adminConfig.userReadOnly || {})) {
+    return Boolean(adminConfig.userReadOnly[key]);
+  }
+  return Boolean(userObj.role && userObj.role.toUpperCase().includes("SOLO VISTA"));
+}
+
+function guardWriteAction(actionLabel = "editar datos") {
+  if (isUserReadOnly(state.currentUser)) {
+    showToast(`Modo Solo Vista activo: tu usuario no puede ${actionLabel}.`, "warning");
+    return false;
+  }
+  return true;
 }
 
 function getUserAvatarUrl(username) {
@@ -726,6 +768,37 @@ async function syncAdditiveTablesFromSupabase() {
       }
     } catch (_) {}
   }
+
+  // 4. Préstamos y Deudas personales del usuario activo
+  if (state.currentUser && state.currentUser.username) {
+    try {
+      const uname = String(state.currentUser.username).trim();
+      const { data: lRows, error: lErr } = await supabaseClient
+        .from("billetera_prestamos")
+        .select("*")
+        .ilike("username", uname)
+        .order("fecha_vencimiento", { ascending: true });
+
+      if (!lErr && Array.isArray(lRows)) {
+        const localLoans = loadMyWalletLoans();
+        if (lRows.length > 0 || localLoans.length === 0) {
+          const mappedLoans = lRows.map(r => ({
+            id: r.id,
+            type: r.tipo || "YO_DEBO",
+            person: r.persona || "",
+            amount: Number(r.monto) || 0,
+            method: r.medio_pago || "EFECTIVO",
+            startDate: r.fecha_prestamo || getTodayLocalISO(),
+            dueDate: r.fecha_vencimiento || getTodayLocalISO(),
+            status: r.estado || "PENDIENTE",
+            paidDate: r.fecha_pagado || "",
+            note: r.observacion || ""
+          }));
+          saveMyWalletLoans(mappedLoans);
+        }
+      }
+    } catch (_) {}
+  }
 }
 
 function loadLocalBackup() {
@@ -780,47 +853,194 @@ function renderLoginUserCards() {
   const wrap = document.getElementById("login-user-cards");
   if (!wrap) return;
   if (!adminConfig.privacy.showLoginCards) {
-    wrap.classList.add("hidden");
+    openManualLoginStep();
     return;
   }
-  wrap.classList.remove("hidden");
 
-  wrap.innerHTML = state.usuarios.map(u => `
-    <button
-      type="button"
-      onclick="selectLoginUserCard('${escHtml(u.username)}')"
-      class="p-2.5 rounded-xl border border-gray-200 hover:border-amber-500 bg-gray-50/70 hover:bg-amber-50/40 flex items-center gap-2.5 text-left transition"
-    >
-      ${renderUserAvatarHtml(u.username)}
-      <div class="min-w-0">
-        <div class="font-bold text-gray-900 text-xs truncate font-sans">${escHtml(u.username)}</div>
-        <div class="text-[10px] text-gray-500 truncate">${escHtml(u.role)}</div>
-      </div>
-    </button>
-  `).join("");
+  wrap.innerHTML = state.usuarios.map(u => {
+    const pinLen = getExpectedPinLengthForUser(u);
+    const readOnly = isUserReadOnly(u);
+    return `
+      <button
+        type="button"
+        onclick="selectLoginUserCard('${escHtml(u.username)}')"
+        class="p-3.5 rounded-2xl border border-gray-200 hover:border-amber-500 bg-gray-50/80 hover:bg-amber-50/40 flex items-center justify-between gap-3 text-left transition"
+      >
+        <div class="flex items-center gap-3 min-w-0">
+          ${renderUserAvatarHtml(u.username)}
+          <div class="min-w-0">
+            <div class="font-bold text-gray-900 text-xs truncate font-sans">${escHtml(u.username)}</div>
+            <div class="text-[10px] text-gray-500 truncate">${escHtml(u.role)}</div>
+          </div>
+        </div>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${readOnly ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-800"} font-mono flex-shrink-0">
+          ${readOnly ? "VISTA" : `${pinLen} DÍG.`}
+        </span>
+      </button>
+    `;
+  }).join("");
+}
+
+function getExpectedPinLengthForUser(u) {
+  if (!u || !u.password) return 6;
+  const len = String(u.password).trim().length;
+  return len === 4 ? 4 : len >= 6 ? len : Math.max(4, len);
 }
 
 function selectLoginUserCard(username) {
+  const found = state.usuarios.find(u => u.username.toLowerCase() === String(username || "").toLowerCase());
+  selectedLoginPinUser = found || { username, role: "OPERADOR", password: "" };
+  loginPinBuffer = "";
+
   const uInp = document.getElementById("login-username");
   const pInp = document.getElementById("login-password");
-  if (uInp) uInp.value = username;
-  if (pInp) {
-    pInp.value = "";
-    pInp.focus();
+  if (uInp) uInp.value = selectedLoginPinUser.username;
+  if (pInp) pInp.value = "";
+
+  document.getElementById("login-step-users")?.classList.add("hidden");
+  document.getElementById("login-step-pin")?.classList.remove("hidden");
+  document.getElementById("manual-username-box")?.classList.add("hidden");
+  document.getElementById("pin-selected-user-header")?.classList.remove("hidden");
+
+  const avWrap = document.getElementById("pin-user-avatar-wrap");
+  if (avWrap) avWrap.innerHTML = renderUserAvatarHtml(selectedLoginPinUser.username, true);
+  const nameEl = document.getElementById("pin-user-name");
+  if (nameEl) nameEl.textContent = selectedLoginPinUser.username;
+  const roleEl = document.getElementById("pin-user-role");
+  if (roleEl) roleEl.textContent = selectedLoginPinUser.role || "OPERADOR";
+  const badgeEl = document.getElementById("pin-digits-badge");
+  const expectedLen = getExpectedPinLengthForUser(selectedLoginPinUser);
+  if (badgeEl) badgeEl.textContent = `${expectedLen} DÍGITOS`;
+
+  document.getElementById("login-error-msg")?.classList.add("hidden");
+  renderLoginPinDots(false);
+  refreshIcons();
+}
+
+function openManualLoginStep() {
+  selectedLoginPinUser = null;
+  loginPinBuffer = "";
+  const uInp = document.getElementById("login-username");
+  const pInp = document.getElementById("login-password");
+  if (uInp) uInp.value = "";
+  if (pInp) pInp.value = "";
+
+  document.getElementById("login-step-users")?.classList.add("hidden");
+  document.getElementById("login-step-pin")?.classList.remove("hidden");
+  document.getElementById("pin-selected-user-header")?.classList.add("hidden");
+  document.getElementById("manual-username-box")?.classList.remove("hidden");
+  document.getElementById("login-error-msg")?.classList.add("hidden");
+  renderLoginPinDots(false);
+  setTimeout(() => uInp?.focus(), 40);
+  refreshIcons();
+}
+
+function backToLoginUsersStep() {
+  selectedLoginPinUser = null;
+  loginPinBuffer = "";
+  const pInp = document.getElementById("login-password");
+  if (pInp) pInp.value = "";
+  document.getElementById("login-step-pin")?.classList.add("hidden");
+  document.getElementById("login-step-users")?.classList.remove("hidden");
+  document.getElementById("login-error-msg")?.classList.add("hidden");
+  renderLoginUserCards();
+  refreshIcons();
+}
+
+function renderLoginPinDots(isError = false) {
+  const dotsWrap = document.getElementById("login-pin-dots");
+  if (!dotsWrap) return;
+  const targetUser = selectedLoginPinUser || state.usuarios.find(
+    u => u.username.toLowerCase() === (document.getElementById("login-username")?.value || "").trim().toLowerCase()
+  );
+  const totalDots = targetUser ? getExpectedPinLengthForUser(targetUser) : Math.max(4, loginPinBuffer.length || 6);
+  dotsWrap.className = "pin-dots-row" + (isError ? " shake" : "");
+  dotsWrap.innerHTML = Array.from({ length: totalDots }, (_, i) =>
+    `<span class="pin-dot ${i < loginPinBuffer.length ? "filled" : ""}"></span>`
+  ).join("");
+}
+
+function pressLoginPinKey(key) {
+  if (adminConfig.privacy.lockoutAfter3Tries && Date.now() < loginLockoutUntil) return;
+  document.getElementById("login-error-msg")?.classList.add("hidden");
+
+  if (!selectedLoginPinUser) {
+    const typedUser = (document.getElementById("login-username")?.value || "").trim();
+    if (typedUser) {
+      const match = state.usuarios.find(u => u.username.toLowerCase() === typedUser.toLowerCase());
+      if (match) selectedLoginPinUser = match;
+    }
+  }
+
+  const maxLen = selectedLoginPinUser ? getExpectedPinLengthForUser(selectedLoginPinUser) : 8;
+
+  if (key === "BACK") {
+    loginPinBuffer = loginPinBuffer.slice(0, -1);
+    const pInp = document.getElementById("login-password");
+    if (pInp) pInp.value = loginPinBuffer;
+    renderLoginPinDots(false);
+    return;
+  }
+
+  if (key === "OK") {
+    const pInp = document.getElementById("login-password");
+    if (pInp && !loginPinBuffer && pInp.value) {
+      loginPinBuffer = pInp.value;
+    }
+    if (pInp) pInp.value = loginPinBuffer;
+    handleLoginSubmit(new Event("submit", { cancelable: true }));
+    return;
+  }
+
+  if (/^\d$/.test(key) && loginPinBuffer.length < maxLen) {
+    loginPinBuffer += key;
+    const pInp = document.getElementById("login-password");
+    if (pInp) pInp.value = loginPinBuffer;
+    renderLoginPinDots(false);
+
+    if (selectedLoginPinUser && loginPinBuffer.length === maxLen) {
+      setTimeout(() => {
+        handleLoginSubmit(new Event("submit", { cancelable: true }));
+      }, 70);
+    }
   }
 }
 
+// Soporte de teclado numérico físico en la pantalla de Login estilo Juanchos
+window.addEventListener("keydown", e => {
+  const loginScreen = document.getElementById("login-screen");
+  if (!loginScreen || loginScreen.classList.contains("hidden")) return;
+  const activeTag = document.activeElement?.tagName?.toUpperCase();
+  if (activeTag === "INPUT" && document.activeElement.id === "login-username") return;
+
+  if (/^\d$/.test(e.key)) {
+    const stepPin = document.getElementById("login-step-pin");
+    if (stepPin && !stepPin.classList.contains("hidden")) {
+      e.preventDefault();
+      pressLoginPinKey(e.key);
+    }
+  } else if (e.key === "Backspace") {
+    const stepPin = document.getElementById("login-step-pin");
+    if (stepPin && !stepPin.classList.contains("hidden")) {
+      e.preventDefault();
+      pressLoginPinKey("BACK");
+    }
+  } else if (e.key === "Enter") {
+    const stepPin = document.getElementById("login-step-pin");
+    if (stepPin && !stepPin.classList.contains("hidden") && loginPinBuffer.length > 0) {
+      e.preventDefault();
+      pressLoginPinKey("OK");
+    }
+  }
+});
+
 function initLoginScreen() {
   updateLoginLiveClock();
+  selectedLoginPinUser = null;
+  loginPinBuffer = "";
+  document.getElementById("login-step-pin")?.classList.add("hidden");
+  document.getElementById("login-step-users")?.classList.remove("hidden");
   renderLoginUserCards();
-
-  const rememberedUser = localStorage.getItem("anarosa_remembered_user");
-  if (rememberedUser) {
-    const uInp = document.getElementById("login-username");
-    const remChk = document.getElementById("login-remember");
-    if (uInp) uInp.value = rememberedUser;
-    if (remChk) remChk.checked = true;
-  }
 
   const savedLockout = Number(localStorage.getItem("anarosa_lockout_until") || 0);
   if (adminConfig.privacy.lockoutAfter3Tries && savedLockout > Date.now()) {
@@ -844,42 +1064,51 @@ function togglePasswordVisibility(inputId, iconId) {
 }
 
 function handleLoginSubmit(e) {
-  e.preventDefault();
+  if (e && e.preventDefault) e.preventDefault();
   if (adminConfig.privacy.lockoutAfter3Tries && Date.now() < loginLockoutUntil) return;
 
-  const uInput = document.getElementById("login-username").value.trim();
-  const pInput = document.getElementById("login-password").value;
-  const remember = document.getElementById("login-remember").checked;
+  const uInput = (selectedLoginPinUser?.username || document.getElementById("login-username")?.value || "").trim();
+  const pInput = loginPinBuffer || (document.getElementById("login-password")?.value || "");
+  const rememberEl = document.getElementById("login-remember");
+  const remember = rememberEl ? rememberEl.checked : true;
 
   const foundUser = state.usuarios.find(
-    u => u.username.toLowerCase() === uInput.toLowerCase() && u.password === pInput
+    u => u.username.toLowerCase() === uInput.toLowerCase() && String(u.password) === String(pInput)
   );
 
   if (!foundUser) {
     failedLoginAttempts++;
+    loginPinBuffer = "";
+    const pInp = document.getElementById("login-password");
+    if (pInp) pInp.value = "";
+    renderLoginPinDots(true);
+    setTimeout(() => renderLoginPinDots(false), 360);
+
     const ind = document.getElementById("login-attempts-indicator");
     if (ind) ind.textContent = `Intentos: ${failedLoginAttempts}/3`;
     const errBox = document.getElementById("login-error-msg");
     const errTxt = document.getElementById("login-error-text");
 
     if (adminConfig.privacy.lockoutAfter3Tries && failedLoginAttempts >= 3) {
-      errBox.classList.add("hidden");
+      if (errBox) errBox.classList.add("hidden");
       loginLockoutUntil = Date.now() + 60 * 1000;
       localStorage.setItem("anarosa_lockout_until", String(loginLockoutUntil));
       startLockoutCountdown();
-    } else {
+    } else if (errBox && errTxt) {
       errBox.classList.remove("hidden");
       errTxt.textContent = adminConfig.privacy.lockoutAfter3Tries
-        ? `Credenciales incorrectas. Te quedan ${Math.max(0, 3 - failedLoginAttempts)} intento(s) antes del bloqueo.`
-        : "Usuario o contraseña incorrectos.";
+        ? `PIN incorrecto. Quedan ${Math.max(0, 3 - failedLoginAttempts)} intento(s).`
+        : "PIN o usuario incorrecto.";
     }
     return;
   }
 
   failedLoginAttempts = 0;
+  loginPinBuffer = "";
   localStorage.removeItem("anarosa_lockout_until");
-  document.getElementById("login-error-msg").classList.add("hidden");
-  document.getElementById("login-attempts-indicator").textContent = "Intentos: 0/3";
+  document.getElementById("login-error-msg")?.classList.add("hidden");
+  const ind = document.getElementById("login-attempts-indicator");
+  if (ind) ind.textContent = "Intentos: 0/3";
 
   if (remember) {
     localStorage.setItem("anarosa_remembered_user", foundUser.username);
@@ -975,8 +1204,16 @@ function loginAsUser(userObj, isRestored = false) {
 
 function updateUserUI() {
   if (!state.currentUser) return;
+  const readOnly = isUserReadOnly(state.currentUser);
+  document.body.classList.toggle("readonly-mode", readOnly);
+  const roBadge = document.getElementById("readonly-mode-badge");
+  if (roBadge) {
+    roBadge.classList.toggle("hidden", !readOnly);
+    roBadge.classList.toggle("inline-flex", readOnly);
+  }
+
   document.getElementById("header-user-badge").textContent = state.currentUser.username;
-  document.getElementById("header-role-badge").textContent = state.currentUser.role;
+  document.getElementById("header-role-badge").textContent = readOnly ? "SOLO VISTA" : state.currentUser.role;
 
   const avEl = document.getElementById("header-user-avatar");
   if (avEl) {
@@ -986,7 +1223,7 @@ function updateUserUI() {
       : escHtml(getInitials(state.currentUser.username));
   }
 
-  const isAdmin = isUserAdmin(state.currentUser);
+  const isAdmin = isUserAdmin(state.currentUser) && !readOnly;
   ["nav-categorias-gastos", "nav-administracion", "nav-supabase"].forEach(id => {
     const btn = document.getElementById(id);
     if (!btn) return;
@@ -999,16 +1236,21 @@ function updateUserUI() {
     }
   });
 
-  const unlocked = state.supabaseGateUnlocked || hasPermission("acceso_sql");
+  const unlocked = (state.supabaseGateUnlocked || hasPermission("acceso_sql")) && !readOnly;
   setLucideIcon("nav-sql-lock-icon", unlocked ? "unlock" : "lock", unlocked ? "w-3.5 h-3.5 text-emerald-400" : "w-3.5 h-3.5 text-amber-400");
 
   refreshIcons();
 }
 
-function logoutToLoginScreen() {
+function logoutToLoginScreen(reasonMsg = "") {
   closeTouchNumpad();
   state.currentUser = null;
   isSessionLocked = false;
+  document.body.classList.remove("readonly-mode");
+  if (lockAutoLogoutInterval) {
+    clearInterval(lockAutoLogoutInterval);
+    lockAutoLogoutInterval = null;
+  }
   try {
     localStorage.removeItem("anarosa_session_user");
     localStorage.removeItem("anarosa_last_activity");
@@ -1019,6 +1261,7 @@ function logoutToLoginScreen() {
   lockEl.classList.remove("flex");
   document.getElementById("login-screen").classList.remove("hidden");
   initLoginScreen();
+  if (reasonMsg) showToast(reasonMsg, "info");
 }
 
 function startInactivityMonitor(keepRemaining = false) {
@@ -1080,6 +1323,11 @@ function resetInactivityTimer() {
   window.addEventListener(evt, resetInactivityTimer, { passive: true });
 });
 
+function getLockLogoutLimitSeconds() {
+  const mins = Number(adminConfig.privacy.lockLogoutMinutes ?? 3);
+  return mins > 0 ? mins * 60 : 0;
+}
+
 function triggerInactivityLock() {
   if (!state.currentUser) return;
   closeTouchNumpad();
@@ -1091,6 +1339,42 @@ function triggerInactivityLock() {
   const lockModal = document.getElementById("inactivity-lock-screen");
   lockModal.classList.remove("hidden");
   lockModal.classList.add("flex");
+
+  // Contador interno: si pasa el tiempo configurado (ej. 3 min) en bloqueo, cierra sesión automáticamente
+  if (lockAutoLogoutInterval) {
+    clearInterval(lockAutoLogoutInterval);
+    lockAutoLogoutInterval = null;
+  }
+  const logoutSec = getLockLogoutLimitSeconds();
+  const wrap = document.getElementById("lock-auto-logout-wrap");
+  const timerEl = document.getElementById("lock-auto-logout-timer");
+  if (logoutSec > 0) {
+    lockAutoLogoutRemainingSeconds = logoutSec;
+    if (wrap) wrap.classList.remove("hidden");
+    const renderLockTimer = () => {
+      const m = String(Math.floor(lockAutoLogoutRemainingSeconds / 60)).padStart(2, "0");
+      const s = String(lockAutoLogoutRemainingSeconds % 60).padStart(2, "0");
+      if (timerEl) timerEl.textContent = `${m}:${s}`;
+    };
+    renderLockTimer();
+    lockAutoLogoutInterval = setInterval(() => {
+      if (!isSessionLocked || !state.currentUser) {
+        clearInterval(lockAutoLogoutInterval);
+        lockAutoLogoutInterval = null;
+        return;
+      }
+      lockAutoLogoutRemainingSeconds--;
+      renderLockTimer();
+      if (lockAutoLogoutRemainingSeconds <= 0) {
+        clearInterval(lockAutoLogoutInterval);
+        lockAutoLogoutInterval = null;
+        logoutToLoginScreen("Sesión cerrada automáticamente por tiempo de bloqueo");
+      }
+    }, 1000);
+  } else if (wrap) {
+    wrap.classList.add("hidden");
+  }
+
   refreshIcons();
 }
 
@@ -1101,6 +1385,10 @@ function handleUnlockSession(e) {
   const freshUser = state.usuarios.find(u => u.username.toLowerCase() === state.currentUser.username.toLowerCase()) || state.currentUser;
   if (pass === freshUser.password) {
     isSessionLocked = false;
+    if (lockAutoLogoutInterval) {
+      clearInterval(lockAutoLogoutInterval);
+      lockAutoLogoutInterval = null;
+    }
     inactivityRemainingSeconds = getInactivityLimitSeconds() || 900;
     try {
       localStorage.setItem("anarosa_last_activity", String(Date.now()));
@@ -1192,6 +1480,32 @@ function isKeepCaseInput(el) {
 
 document.addEventListener("input", e => {
   const el = e.target;
+  if (!el || !el.tagName) return;
+
+  // 1. Campos de solo dígitos enteros (contraseñas PIN, RUC, teléfono, cantidades enteras)
+  const isDigitsOnly = (el.dataset && (el.dataset.digitsOnly === "true" || el.dataset.numpad === "integer"));
+  if (isDigitsOnly) {
+    const raw = String(el.value || "");
+    const clean = raw.replace(/\D+/g, "");
+    if (raw !== clean) {
+      el.value = clean;
+    }
+    return;
+  }
+
+  // 2. Campos de moneda Soles (S/) con máximo 2 decimales exactos (ej. 12.12)
+  if (el.dataset && el.dataset.numpad === "decimal") {
+    const raw = String(el.value || "");
+    if (raw.includes(".")) {
+      const parts = raw.split(".");
+      if (parts[1] && parts[1].length > 2) {
+        el.value = `${parts[0]}.${parts[1].slice(0, 2)}`;
+      }
+    }
+    return;
+  }
+
+  // 3. Regla general de MAYÚSCULAS
   if (isKeepCaseInput(el)) return;
   const val = el.value;
   const upper = val.toUpperCase();
@@ -1205,7 +1519,45 @@ document.addEventListener("input", e => {
   }
 }, true);
 
-// Controlador del Teclado Numérico Táctil (Aparece en pantallas táctiles, oculto en PC)
+// Bloquear letras desde teclado físico en laptops/PC en campos numéricos
+document.addEventListener("keydown", e => {
+  const el = e.target;
+  if (!el || !el.tagName) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const allowedControlKeys = ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
+  if (allowedControlKeys.includes(e.key)) return;
+
+  const isIntField = el.dataset && (el.dataset.digitsOnly === "true" || el.dataset.numpad === "integer");
+  const isDecField = (el.dataset && el.dataset.numpad === "decimal") || el.type === "number";
+
+  if (isIntField) {
+    if (!/^\d$/.test(e.key)) {
+      e.preventDefault();
+    }
+  } else if (isDecField) {
+    if (/^\d$/.test(e.key)) {
+      const val = String(el.value || "");
+      const dotIdx = val.indexOf(".");
+      if (dotIdx !== -1 && val.slice(dotIdx + 1).length >= 2) {
+        const selStart = typeof el.selectionStart === "number" ? el.selectionStart : val.length;
+        const selEnd = typeof el.selectionEnd === "number" ? el.selectionEnd : val.length;
+        if (selStart === selEnd && selStart > dotIdx) {
+          e.preventDefault();
+        }
+      }
+      return;
+    }
+    if ((e.key === "." || e.key === ",") && !String(el.value || "").includes(".")) {
+      return;
+    }
+    e.preventDefault();
+  }
+}, true);
+
+// Controlador del Teclado Numérico:
+// - En celulares (< 768px): abre directamente el teclado numérico nativo del teléfono (solo números)
+// - En pantallas grandes táctiles (>= 768px): abre el panel numérico en pantalla
+// - En PC / laptop con teclado: permite escribir solo números directamente
 let activeNumpadInput = null;
 let activeNumpadMode = "decimal";
 let numpadBuffer = "";
@@ -1218,10 +1570,15 @@ function isTouchScreenDevice() {
   );
 }
 
+function isMobilePhoneViewport() {
+  return window.innerWidth < 768;
+}
+
 function shouldOpenTouchNumpad() {
   const mode = adminConfig.workflow.numpadMode || "AUTO_TOUCH";
   if (mode === "NATIVE_ONLY") return false;
   if (mode === "ALWAYS") return true;
+  if (isMobilePhoneViewport()) return false;
   return isTouchScreenDevice();
 }
 
@@ -1288,6 +1645,10 @@ function pressNumpadKey(key) {
     if (activeNumpadMode === "integer") return;
     if (!cur.includes(".")) cur = (cur || "0") + ".";
   } else {
+    if (cur.includes(".")) {
+      const decPart = cur.split(".")[1] || "";
+      if (decPart.length >= 2) return;
+    }
     cur += key;
   }
 
@@ -1534,6 +1895,10 @@ function resetTabForms(tabName) {
   } else if (tabName === "billetera") {
     const wDate = document.getElementById("wallet-date");
     if (wDate && !wDate.value) wDate.value = getTodayLocalISO();
+    const lStart = document.getElementById("loan-start-date");
+    if (lStart && !lStart.value) lStart.value = getTodayLocalISO();
+    const lDue = document.getElementById("loan-due-date");
+    if (lDue && !lDue.value) lDue.value = getTodayLocalISO();
   }
 }
 
@@ -2018,6 +2383,7 @@ function renderPosProductPicker() {
 }
 
 function addProductToPosCart(prodId) {
+  if (!guardWriteAction("agregar productos al carrito")) return;
   const prod = state.almacen.find(a => a.id === Number(prodId));
   if (!prod) return;
   const strictStock = (adminConfig.workflow.stockMode || "STRICT") === "STRICT";
@@ -2307,6 +2673,7 @@ function recalcPosTotals() {
 }
 
 async function submitPosSale() {
+  if (!guardWriteAction("registrar ventas")) return;
   if (state.posCart.length === 0) {
     showToast("Agrega al menos un repuesto al carrito antes de procesar", "warning");
     return;
@@ -2607,6 +2974,7 @@ function renderVentasTable() {
 }
 
 function openAbonoModal(saleId) {
+  if (!guardWriteAction("registrar pagos o abonos")) return;
   const v = state.ventas.find(x => x.id === saleId);
   if (!v) return;
   document.getElementById("abono-venta-id").value = v.id;
@@ -2820,11 +3188,9 @@ function getLogoImgForPrint() {
   return `<img class="t80-logo" src="favicon.svg" alt="Logo" />`;
 }
 
-function generateThermalTicketHTML(sale, forceType = null) {
+function generateThermalTicketHTML(sale) {
   const imp = adminConfig.printing;
-  const activeType = forceType || (imp.usarTicketCliente ? "cliente" : "interno");
-  const isInternal = activeType === "interno";
-  const tpl = imp.templates[activeType] || createDefaultPrinterTemplate(activeType);
+  const tpl = imp.templates.cliente || createDefaultPrinterTemplate("cliente");
   const widthClass = imp.paperWidth === "58mm" ? "w-58mm" : "";
 
   const total = Number(sale.total) || 0;
@@ -2836,10 +3202,6 @@ function generateThermalTicketHTML(sale, forceType = null) {
   const ticketRef = sale.ticket || `#${String(sale.id || 1).padStart(5, "0")}`;
   const cashier = state.currentUser ? state.currentUser.username : "ANAROSA";
   const nowTime = new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
-
-  const dispatchListHtml = lines.map(l => `
-    <div class="t80-dispatch-item">${l.cant} × ${escHtml(l.nombre)}</div>
-  `).join("");
 
   const itemsDetailHtml = lines.map(l => `
     <div class="t80-row" style="align-items:flex-start;margin:3px 0;">
@@ -2871,14 +3233,7 @@ function generateThermalTicketHTML(sale, forceType = null) {
         <div>CLIENTE: <strong>${escHtml(sale.cliente || "OTROS")}</strong></div>
         ${sale.origen ? `<div>ORIGEN: ${escHtml(sale.origen)}</div>` : ""}
       </div>
-
-      ${isInternal ? `
-        <div class="t80-big-callout">${escHtml(sale.cliente || ticketRef)}</div>
-        <div class="t80-dispatch-box">
-          <div class="t80-dispatch-title">REPUESTOS A DESPACHAR DE ALMACÉN</div>
-          ${dispatchListHtml}
-        </div>
-      ` : `<hr class="t80-dash" />`}
+      <hr class="t80-dash" />
 
       <div>
         <div class="t80-row" style="font-weight:800;border-bottom:1px solid #000;padding-bottom:2px;margin-bottom:4px;">
@@ -2916,7 +3271,36 @@ function generateThermalTicketHTML(sale, forceType = null) {
   `;
 }
 
-function printSaleTicketDirect(saleObj, forceType = null) {
+function updatePreviewZoomUI() {
+  const z = Number(state.printPreviewZoom) || 1;
+  const pct = `${Math.round(z * 100)}%`;
+  const admLbl = document.getElementById("adm-preview-zoom-lbl");
+  const modLbl = document.getElementById("modal-preview-zoom-lbl");
+  if (admLbl) admLbl.textContent = pct;
+  if (modLbl) modLbl.textContent = pct;
+  document.querySelectorAll(".print-zoom-stage").forEach(el => {
+    el.style.setProperty("--preview-zoom", z.toFixed(2));
+  });
+}
+
+function changePrintPreviewZoom(delta) {
+  const next = Math.max(0.45, Math.min(1.6, (Number(state.printPreviewZoom) || 1) + delta));
+  state.printPreviewZoom = Number(next.toFixed(2));
+  updatePreviewZoomUI();
+}
+
+function resetPrintPreviewZoom(autoFitA4InAdmin = false) {
+  if (autoFitA4InAdmin) {
+    const box = document.getElementById("printer-live-preview-box");
+    const availW = box ? Math.max(280, box.clientWidth - 36) : 520;
+    state.printPreviewZoom = Number(Math.min(1, Math.max(0.52, availW / 794)).toFixed(2));
+  } else {
+    state.printPreviewZoom = 1;
+  }
+  updatePreviewZoomUI();
+}
+
+function printSaleTicketDirect(saleObj) {
   if (!canUserPrint(state.currentUser)) {
     showToast("Tu usuario no tiene autorización de impresión activa", "warning");
     return;
@@ -2925,7 +3309,7 @@ function printSaleTicketDirect(saleObj, forceType = null) {
   applyPrintPageRule(paperW);
   const cont = document.getElementById("impresion");
   cont.className = paperW === "58mm" ? "print-58mm" : "print-80mm";
-  cont.innerHTML = generateThermalTicketHTML(saleObj, forceType);
+  cont.innerHTML = generateThermalTicketHTML(saleObj);
   window.print();
 }
 
@@ -2937,32 +3321,18 @@ function printSaleTicket(saleId) {
   const v = state.ventas.find(x => x.id === saleId) || (lastCreatedSale && lastCreatedSale.id === saleId ? lastCreatedSale : null);
   if (!v) return;
 
-  const defaultType = adminConfig.printing.usarTicketCliente ? "cliente" : "interno";
-  currentModalPrintContext = { mode: "sale", saleId: v.id, saleObj: v, ticketType: defaultType };
+  currentModalPrintContext = { mode: "sale", saleId: v.id, saleObj: v, ticketType: "cliente" };
+  state.printPreviewZoom = 1;
 
   document.getElementById("modal-print-title").textContent = `Comprobante ${v.ticket || "#" + v.id}`;
-  document.getElementById("modal-print-subtitle").textContent = `Formato térmico ${adminConfig.printing.paperWidth} listo para imprimir o guardar PDF.`;
-
-  const switcher = document.getElementById("modal-ticket-type-switcher");
-  switcher.classList.remove("hidden");
-  switcher.classList.add("inline-flex");
-  switchModalTicketFormat(defaultType);
+  document.getElementById("modal-print-subtitle").textContent = "Listo para imprimir o guardar en PDF.";
+  document.getElementById("print-report-area").innerHTML = `<div class="print-zoom-stage" style="--preview-zoom:1">${generateThermalTicketHTML(v)}</div>`;
+  updatePreviewZoomUI();
 
   const modal = document.getElementById("modal-print-report");
   modal.classList.remove("hidden");
   modal.classList.add("flex");
   refreshIcons();
-}
-
-function switchModalTicketFormat(fmt) {
-  currentModalPrintContext.ticketType = fmt;
-  document.querySelectorAll("#modal-ticket-type-switcher [data-mtfmt]").forEach(btn => {
-    const active = btn.dataset.mtfmt === fmt;
-    btn.className = active ? "px-2.5 py-1 rounded-lg font-bold btn-accent" : "px-2.5 py-1 rounded-lg font-semibold text-gray-600";
-  });
-  if (currentModalPrintContext.saleObj) {
-    document.getElementById("print-report-area").innerHTML = generateThermalTicketHTML(currentModalPrintContext.saleObj, fmt);
-  }
 }
 
 function downloadSaleTicketPDF(saleId) {
@@ -3112,14 +3482,13 @@ function openPrintReportModal() {
 
   const reportHtml = generateA4ReportHTML(rows, titlePeriod);
   currentModalPrintContext = { mode: "a4", reportHtml };
+  state.printPreviewZoom = window.innerWidth < 860 ? 0.62 : 0.92;
 
-  document.getElementById("modal-print-title").textContent = "Vista Previa de Reporte Oficial A4";
-  document.getElementById("modal-print-subtitle").textContent = "Optimizado para hoja A4 o Guardar como PDF.";
-  const switcher = document.getElementById("modal-ticket-type-switcher");
-  switcher.classList.add("hidden");
-  switcher.classList.remove("inline-flex");
+  document.getElementById("modal-print-title").textContent = "Vista Previa de Reporte";
+  document.getElementById("modal-print-subtitle").textContent = "Usa los botones - / + para acercar o alejar.";
 
-  document.getElementById("print-report-area").innerHTML = reportHtml;
+  document.getElementById("print-report-area").innerHTML = `<div class="print-zoom-stage" style="--preview-zoom:${state.printPreviewZoom}">${reportHtml}</div>`;
+  updatePreviewZoomUI();
   const modal = document.getElementById("modal-print-report");
   modal.classList.remove("hidden");
   modal.classList.add("flex");
@@ -3418,6 +3787,7 @@ function updateCompraTotalPreview() {
 
 async function handlePurchaseSubmit(e) {
   e.preventDefault();
+  if (!guardWriteAction("registrar compras")) return;
   const selVal = document.getElementById("compra-producto-id").value;
   if (!selVal) return;
 
@@ -3489,6 +3859,7 @@ function getNextAvailableProductCode() {
 }
 
 function openProductModal(editId = null) {
+  if (!guardWriteAction("crear o editar repuestos")) return;
   const modal = document.getElementById("modal-producto");
   const canEditPrices = !editId || hasPermission("modificar_precios") || state.tempPriceOverride;
   const pCompraInput = document.getElementById("prod-pcompra");
@@ -3746,6 +4117,7 @@ function renderClientesView() {
 
 async function handleAddClient(e) {
   e.preventDefault();
+  if (!guardWriteAction("agregar clientes")) return;
   const codigo = document.getElementById("new-client-codigo").value.trim().toUpperCase();
   const origen = document.getElementById("new-client-origen").value.trim().toUpperCase();
   const nombre = document.getElementById("new-client-nombre").value.trim().toUpperCase();
@@ -4180,7 +4552,336 @@ function renderWalletView() {
       `;
     }).join("");
   }
+
+  renderWalletLoansSection();
   refreshIcons();
+}
+
+// ZONA DE PRÉSTAMOS Y DEUDAS PERSONALES (AFECTA A MI BILLETERA + DÍAS DE RETRASO)
+function getCurrentUserLoansStorageKey() {
+  if (!state.currentUser || !state.currentUser.username) return null;
+  return WALLET_LOANS_PREFIX_KEY + String(state.currentUser.username).trim().toLowerCase();
+}
+
+function loadMyWalletLoans() {
+  const key = getCurrentUserLoansStorageKey();
+  if (!key) return [];
+  try {
+    const raw = localStorage.getItem(key);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveMyWalletLoans(loans) {
+  const key = getCurrentUserLoansStorageKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify(loans));
+  } catch (_) {}
+}
+
+function setWalletLoanFormType(type) {
+  const isYoDebo = type !== "ME_DEBEN";
+  const inp = document.getElementById("loan-type-input");
+  if (inp) inp.value = isYoDebo ? "YO_DEBO" : "ME_DEBEN";
+
+  const btnDebo = document.getElementById("loan-type-debo-btn");
+  const btnPreste = document.getElementById("loan-type-preste-btn");
+  if (btnDebo && btnPreste) {
+    if (isYoDebo) {
+      btnDebo.className = "py-2 rounded-lg font-bold bg-rose-600 text-white shadow";
+      btnPreste.className = "py-2 rounded-lg font-bold text-gray-600";
+    } else {
+      btnPreste.className = "py-2 rounded-lg font-bold bg-emerald-600 text-white shadow";
+      btnDebo.className = "py-2 rounded-lg font-bold text-gray-600";
+    }
+  }
+  const impactLbl = document.getElementById("loan-wallet-impact-label");
+  if (impactLbl) {
+    impactLbl.textContent = isYoDebo
+      ? "Reflejar ahora en mi billetera (+ Ingreso recibido)"
+      : "Reflejar ahora en mi billetera (- Dinero entregado)";
+  }
+}
+
+function setWalletLoanFilter(filterVal) {
+  state.walletLoanFilter = filterVal;
+  document.querySelectorAll("#loan-filter-pills [data-lf]").forEach(btn => {
+    const act = btn.dataset.lf === filterVal;
+    btn.className = act
+      ? "px-3 py-1.5 rounded-xl font-bold btn-accent allow-readonly"
+      : "px-3 py-1.5 rounded-xl font-bold bg-gray-100 text-gray-700 allow-readonly";
+  });
+  renderWalletLoansSection();
+}
+
+function calcLoanDelayDays(dueDateIso) {
+  if (!dueDateIso) return 0;
+  const todayMs = new Date(getTodayLocalISO() + "T00:00:00").getTime();
+  const dueMs = new Date(String(dueDateIso).slice(0, 10) + "T00:00:00").getTime();
+  return Math.round((todayMs - dueMs) / 86400000); // > 0 = retrasado X días, < 0 = faltan X días
+}
+
+async function recordLoanWalletImpactEntry({ type, amount, method, date, note }) {
+  if (!state.currentUser) return;
+  const entries = loadMyWalletEntries();
+  const isIncome = type === "INGRESO";
+  let newId = Date.now() + Math.floor(Math.random() * 1000);
+  const uname = String(state.currentUser.username).trim();
+
+  if (supabaseClient) {
+    try {
+      const { data: ins, error } = await supabaseClient.from("billetera_personal").insert([{
+        username: uname,
+        tipo: type,
+        monto: amount,
+        categoria_id: "cat_ahorro",
+        categoria_nombre: isIncome ? "PRÉSTAMO / COBRO" : "PAGO DE DEUDA / PRÉSTAMO",
+        categoria_color: isIncome ? "#10b981" : "#ef4444",
+        categoria_icono: "piggy-bank",
+        medio_pago: method,
+        fecha: date,
+        observacion: note
+      }]).select();
+      if (!error && ins && ins[0]?.id) newId = ins[0].id;
+    } catch (_) {}
+  }
+
+  entries.unshift({
+    id: newId,
+    type,
+    amount,
+    catId: "cat_ahorro",
+    catName: isIncome ? "PRÉSTAMO / COBRO" : "PAGO DE DEUDA / PRÉSTAMO",
+    catColor: isIncome ? "#10b981" : "#ef4444",
+    catIcon: "piggy-bank",
+    method,
+    date,
+    note,
+    createdAt: new Date().toISOString()
+  });
+  saveMyWalletEntries(entries);
+}
+
+async function handleSaveWalletLoan(e) {
+  e.preventDefault();
+  if (!state.currentUser || !guardWriteAction("registrar préstamos")) return;
+
+  const type = document.getElementById("loan-type-input").value || "YO_DEBO";
+  const person = (document.getElementById("loan-person-input").value || "").trim().toUpperCase();
+  const amount = Math.round((Math.max(0, Number(document.getElementById("loan-amount-input").value) || 0) + Number.EPSILON) * 100) / 100;
+  const method = document.getElementById("loan-method-input").value || "EFECTIVO";
+  const startDate = document.getElementById("loan-start-date").value || getTodayLocalISO();
+  const dueDate = document.getElementById("loan-due-date").value || getTodayLocalISO();
+  const note = (document.getElementById("loan-note-input").value || "").trim();
+  const affectWallet = document.getElementById("loan-affect-wallet-chk")?.checked !== false;
+
+  if (!person || amount <= 0) {
+    showToast("Completa el nombre y un monto mayor a S/ 0.00", "warning");
+    return;
+  }
+
+  let loanId = Date.now();
+  const uname = String(state.currentUser.username).trim();
+
+  if (supabaseClient) {
+    try {
+      const { data: ins, error } = await supabaseClient.from("billetera_prestamos").insert([{
+        username: uname,
+        tipo: type,
+        persona: person,
+        monto: amount,
+        medio_pago: method,
+        fecha_prestamo: startDate,
+        fecha_vencimiento: dueDate,
+        estado: "PENDIENTE",
+        observacion: note
+      }]).select();
+      if (!error && ins && ins[0]?.id) loanId = ins[0].id;
+    } catch (_) {}
+  }
+
+  const loans = loadMyWalletLoans();
+  loans.unshift({
+    id: loanId,
+    type,
+    person,
+    amount,
+    method,
+    startDate,
+    dueDate,
+    status: "PENDIENTE",
+    paidDate: "",
+    note
+  });
+  saveMyWalletLoans(loans);
+
+  if (affectWallet) {
+    // Si YO_DEBO (me prestaron dinero), entra dinero a mi billetera (+INGRESO)
+    // Si ME_DEBEN (yo presté dinero), sale dinero de mi billetera (-GASTO)
+    await recordLoanWalletImpactEntry({
+      type: type === "YO_DEBO" ? "INGRESO" : "GASTO",
+      amount,
+      method,
+      date: startDate,
+      note: type === "YO_DEBO"
+        ? `Préstamo recibido de ${person}${note ? " · " + note : ""}`
+        : `Préstamo entregado a ${person}${note ? " · " + note : ""}`
+    });
+  }
+
+  document.getElementById("loan-person-input").value = "";
+  document.getElementById("loan-amount-input").value = "";
+  document.getElementById("loan-note-input").value = "";
+  renderWalletView();
+  showToast(type === "YO_DEBO" ? `Deuda con ${person} registrada` : `Préstamo a ${person} registrado`, "success");
+}
+
+async function settleWalletLoan(loanId) {
+  if (!state.currentUser || !guardWriteAction("liquidar préstamos")) return;
+  const loans = loadMyWalletLoans();
+  const loan = loans.find(x => String(x.id) === String(loanId));
+  if (!loan || loan.status === "PAGADO") return;
+
+  const today = getTodayLocalISO();
+  loan.status = "PAGADO";
+  loan.paidDate = today;
+  saveMyWalletLoans(loans);
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient
+        .from("billetera_prestamos")
+        .update({ estado: "PAGADO", fecha_pagado: today })
+        .eq("id", Number(loanId))
+        .ilike("username", String(state.currentUser.username).trim());
+    } catch (_) {}
+  }
+
+  // Al liquidar:
+  // Si era YO_DEBO y ya pagué -> sale dinero de mi billetera (-GASTO)
+  // Si era ME_DEBEN y me pagaron -> entra dinero a mi billetera (+INGRESO)
+  await recordLoanWalletImpactEntry({
+    type: loan.type === "YO_DEBO" ? "GASTO" : "INGRESO",
+    amount: Number(loan.amount) || 0,
+    method: loan.method || "EFECTIVO",
+    date: today,
+    note: loan.type === "YO_DEBO"
+      ? `Pago de deuda a ${loan.person}`
+      : `Cobro de préstamo a ${loan.person}`
+  });
+
+  renderWalletView();
+  showToast(
+    loan.type === "YO_DEBO"
+      ? `Deuda con ${loan.person} pagada y descontada de tu billetera`
+      : `Préstamo de ${loan.person} cobrado y sumado a tu billetera`,
+    "success"
+  );
+}
+
+async function deleteWalletLoan(loanId) {
+  if (!state.currentUser || !guardWriteAction("eliminar préstamos")) return;
+  const loans = loadMyWalletLoans().filter(x => String(x.id) !== String(loanId));
+  saveMyWalletLoans(loans);
+  if (supabaseClient) {
+    try {
+      await supabaseClient
+        .from("billetera_prestamos")
+        .delete()
+        .eq("id", Number(loanId))
+        .ilike("username", String(state.currentUser.username).trim());
+    } catch (_) {}
+  }
+  renderWalletLoansSection();
+  showToast("Registro eliminado", "info");
+}
+
+function renderWalletLoansSection() {
+  const listEl = document.getElementById("wallet-loans-list");
+  if (!listEl) return;
+
+  const lStart = document.getElementById("loan-start-date");
+  const lDue = document.getElementById("loan-due-date");
+  if (lStart && !lStart.value) lStart.value = getTodayLocalISO();
+  if (lDue && !lDue.value) lDue.value = getTodayLocalISO();
+
+  const allLoans = loadMyWalletLoans();
+  const pendingDebo = allLoans
+    .filter(x => x.status !== "PAGADO" && x.type === "YO_DEBO")
+    .reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  const pendingMeDeben = allLoans
+    .filter(x => x.status !== "PAGADO" && x.type === "ME_DEBEN")
+    .reduce((s, x) => s + (Number(x.amount) || 0), 0);
+
+  const kpiDebo = document.getElementById("loans-kpi-debo");
+  const kpiMeDeben = document.getElementById("loans-kpi-medeben");
+  if (kpiDebo) kpiDebo.textContent = formatMoney(pendingDebo);
+  if (kpiMeDeben) kpiMeDeben.textContent = formatMoney(pendingMeDeben);
+
+  const overdueCount = allLoans.filter(x => x.status !== "PAGADO" && calcLoanDelayDays(x.dueDate) > 0).length;
+  const overdueBadge = document.getElementById("loans-overdue-alert-badge");
+  if (overdueBadge) {
+    overdueBadge.textContent = overdueCount > 0 ? `¡${overdueCount} con retraso!` : "";
+  }
+
+  const filtered = allLoans.filter(x => state.walletLoanFilter === "TODOS" || x.status !== "PAGADO");
+  if (filtered.length === 0) {
+    listEl.innerHTML = `<div class="p-6 text-center text-xs text-gray-400 border border-dashed border-gray-200 rounded-2xl">Sin préstamos ni deudas pendientes.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(item => {
+    const isDebo = item.type === "YO_DEBO";
+    const isPaid = item.status === "PAGADO";
+    const delayDays = calcLoanDelayDays(item.dueDate);
+
+    let delayBadgeHtml = "";
+    if (isPaid) {
+      delayBadgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">CUMPLIDO (${formatDatePE(item.paidDate)})</span>`;
+    } else if (delayDays > 0) {
+      delayBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">${isDebo ? "TE PASASTE" : "RETRASO DE"} ${delayDays} DÍA${delayDays === 1 ? "" : "S"}</span>`;
+    } else if (delayDays === 0) {
+      delayBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">VENCE HOY</span>`;
+    } else {
+      const rem = Math.abs(delayDays);
+      delayBadgeHtml = `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-100 text-sky-800">FALTAN ${rem} DÍA${rem === 1 ? "" : "S"}</span>`;
+    }
+
+    return `
+      <div class="p-3.5 rounded-2xl border ${!isPaid && delayDays > 0 ? "border-rose-300 bg-rose-50/40" : "border-gray-200 bg-gray-50/80"} flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="space-y-1 min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isDebo ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"}">
+              ${isDebo ? "YO DEBO A" : "ME DEBE"}
+            </span>
+            <strong class="text-xs font-bold text-gray-900">${escHtml(item.person)}</strong>
+            ${delayBadgeHtml}
+          </div>
+          <div class="text-[11px] text-gray-500">
+            Acordado para el <strong>${formatDatePE(item.dueDate)}</strong> · Medio: ${escHtml(item.method || "EFECTIVO")}
+            ${item.note ? ` · <span>${escHtml(item.note)}</span>` : ""}
+          </div>
+        </div>
+        <div class="flex items-center justify-between sm:justify-end gap-2 flex-shrink-0">
+          <span class="font-display font-bold text-sm tabular ${isDebo ? "text-rose-600" : "text-emerald-600"}">
+            ${formatMoney(item.amount)}
+          </span>
+          ${!isPaid ? `
+            <button type="button" onclick="settleWalletLoan('${item.id}')" class="px-3 py-1.5 rounded-xl text-[11px] font-bold ${isDebo ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"} shadow-sm">
+              ${isDebo ? "Ya Pagué" : "Me Pagaron"}
+            </button>
+          ` : ""}
+          <button type="button" onclick="deleteWalletLoan('${item.id}')" class="p-1.5 text-gray-400 hover:text-red-600 rounded-lg" title="Eliminar">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function exportMyWalletCSV() {
@@ -4444,6 +5145,19 @@ function toggleUserPrintAuth(username) {
   showToast(`Impresión ${!current ? "habilitada" : "desactivada"} para ${username}`, "info");
 }
 
+function toggleUserReadOnlyMode(username) {
+  if (username.toUpperCase() === "WILLOSIRIS") return;
+  const key = username.trim().toLowerCase();
+  if (!adminConfig.userReadOnly) adminConfig.userReadOnly = {};
+  const current = Boolean(adminConfig.userReadOnly[key]);
+  adminConfig.userReadOnly[key] = !current;
+  saveAdminConfig();
+  updateUserUI();
+  renderLoginUserCards();
+  renderUsuariosAdminTable();
+  showToast(`Modo Solo Vista ${!current ? "activado" : "desactivado"} para ${username}`, "info");
+}
+
 function renderUsuariosAdminTable() {
   const tbody = document.getElementById("usuarios-table-body");
   if (!tbody) return;
@@ -4451,6 +5165,7 @@ function renderUsuariosAdminTable() {
 
   tbody.innerHTML = state.usuarios.map(u => {
     const canPrint = canUserPrint(u);
+    const readOnly = isUserReadOnly(u);
     const showClear = !maskPass || Boolean(state.revealedUserPasswords[u.id]);
     const isRoot = u.username.toUpperCase() === "WILLOSIRIS";
 
@@ -4472,6 +5187,11 @@ function renderUsuariosAdminTable() {
             <span>${showClear ? escHtml(u.password) : "••••••"}</span>
             ${maskPass ? `<button type="button" onclick="toggleRevealTablePassword(${u.id})" class="text-gray-400 hover:text-gray-700"><i data-lucide="${showClear ? "eye-off" : "eye"}" class="w-3.5 h-3.5"></i></button>` : ""}
           </div>
+        </td>
+        <td class="py-3 px-3">
+          <button type="button" ${isRoot ? "disabled" : ""} onclick="toggleUserReadOnlyMode('${escHtml(u.username)}')" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${readOnly ? "bg-amber-100 text-amber-800" : "bg-sky-100 text-sky-800"}">
+            ${readOnly ? "SOLO VISTA" : "OPERATIVO"}
+          </button>
         </td>
         <td class="py-3 px-3">
           <button type="button" onclick="toggleUserPrintAuth('${escHtml(u.username)}')" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${canPrint ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}">
@@ -4520,6 +5240,8 @@ function loadUserIntoForm(userId) {
   document.getElementById("user-form-username").value = usr.username;
   document.getElementById("user-form-password").value = usr.password;
   document.getElementById("user-form-role").value = usr.role;
+  const roChk = document.getElementById("perm-solo-vista");
+  if (roChk) roChk.checked = isUserReadOnly(usr);
   document.getElementById("perm-imprimir").checked = canUserPrint(usr);
   document.getElementById("perm-eliminar-ventas").checked = Boolean(usr.permissions.eliminar_ventas);
   document.getElementById("perm-modificar-precios").checked = Boolean(usr.permissions.modificar_precios);
@@ -4535,6 +5257,8 @@ function resetUserForm() {
   document.getElementById("user-form-username").value = "";
   document.getElementById("user-form-password").value = "";
   document.getElementById("user-form-role").value = "";
+  const roChk = document.getElementById("perm-solo-vista");
+  if (roChk) roChk.checked = false;
   document.getElementById("perm-imprimir").checked = true;
   document.getElementById("perm-eliminar-ventas").checked = false;
   document.getElementById("perm-modificar-precios").checked = false;
@@ -4549,20 +5273,30 @@ async function handleSaveUser(e) {
   const editId = document.getElementById("edit-user-id").value;
   const username = document.getElementById("user-form-username").value.trim();
   const password = document.getElementById("user-form-password").value.trim();
-  const role = document.getElementById("user-form-role").value.trim().toUpperCase();
+  if (!/^\d{4,8}$/.test(password)) {
+    showToast("El PIN del usuario debe contener solo números (4 o 6 dígitos).", "warning");
+    return;
+  }
+  const readOnly = Boolean(document.getElementById("perm-solo-vista")?.checked);
+  let role = document.getElementById("user-form-role").value.trim().toUpperCase();
+  if (readOnly && !role.includes("SOLO VISTA")) {
+    role = `${role} (SOLO VISTA)`;
+  }
   const printAllowed = document.getElementById("perm-imprimir").checked;
   const permissions = {
-    eliminar_ventas: document.getElementById("perm-eliminar-ventas").checked,
-    modificar_precios: document.getElementById("perm-modificar-precios").checked,
-    acceso_sql: document.getElementById("perm-acceso-sql").checked,
-    gestionar_usuarios: document.getElementById("perm-gestionar-usuarios").checked
+    eliminar_ventas: readOnly ? false : document.getElementById("perm-eliminar-ventas").checked,
+    modificar_precios: readOnly ? false : document.getElementById("perm-modificar-precios").checked,
+    acceso_sql: readOnly ? false : document.getElementById("perm-acceso-sql").checked,
+    gestionar_usuarios: readOnly ? false : document.getElementById("perm-gestionar-usuarios").checked
   };
 
-  // Guardar icono y permiso de impresión localmente sin alterar columnas de `usuarios` en Supabase
+  // Guardar icono, modo solo vista y permiso de impresión sin alterar columnas de `usuarios` en Supabase
   const uKey = username.toLowerCase();
   if (state.tempUserFormAvatar) adminConfig.userAvatars[uKey] = state.tempUserFormAvatar;
   else delete adminConfig.userAvatars[uKey];
   adminConfig.userPrintPerm[uKey] = printAllowed;
+  if (!adminConfig.userReadOnly) adminConfig.userReadOnly = {};
+  adminConfig.userReadOnly[uKey] = readOnly;
   saveAdminConfig();
 
   // Payload 100% compatible con la tabla `usuarios` existente
@@ -4643,29 +5377,27 @@ function attemptDeleteUser(userId) {
   });
 }
 
-// 12.2 CONFIGURACIÓN Y VISTA PREVIA DE IMPRESIÓN EN VIVO
+// 12.2 CONFIGURACIÓN Y VISTA PREVIA DE IMPRESIÓN EN VIVO (TICKET DE VENTA Y REPORTE A4)
 function switchPrinterTemplateTab(tplKey) {
   readPrinterFormIntoConfig();
-  state.editingPrinterTpl = tplKey;
+  state.editingPrinterTpl = tplKey === "a4" ? "a4" : "cliente";
   document.querySelectorAll("#tpl-editor-tabs [data-tpltab]").forEach(btn => {
-    const act = btn.dataset.tpltab === tplKey;
-    btn.className = act ? "px-2.5 py-1.5 rounded-lg text-[11px] font-bold btn-accent" : "px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600";
+    const act = btn.dataset.tpltab === state.editingPrinterTpl;
+    btn.className = act ? "px-3 py-1.5 rounded-lg text-[11px] font-bold btn-accent" : "px-3 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600";
   });
+  resetPrintPreviewZoom(state.editingPrinterTpl === "a4");
   populateAdminPrinterForm();
 }
 
 function populateAdminPrinterForm() {
   const imp = adminConfig.printing;
-  const tplKey = state.editingPrinterTpl || "cliente";
+  if (state.editingPrinterTpl !== "a4") state.editingPrinterTpl = "cliente";
+  const tplKey = state.editingPrinterTpl;
   const tpl = imp.templates[tplKey] || createDefaultPrinterTemplate(tplKey);
 
-  document.getElementById("sw-usar-ticket-cliente").checked = Boolean(imp.usarTicketCliente);
   document.getElementById("sw-auto-print-sale").checked = Boolean(imp.autoPrintOnSale);
   document.getElementById("cfg-paper-width").value = imp.paperWidth || "80mm";
   document.getElementById("cfg-a4-color").value = imp.a4ColorMode || "color";
-  document.getElementById("lbl-ticket-mode-active").textContent = imp.usarTicketCliente
-    ? "Modo activo: Ticket Comprobante para Cliente"
-    : "Modo activo: Ticket de Control Interno y Despacho";
 
   document.getElementById("tkt-brand-title").value = tpl.brandTitle || "";
   document.getElementById("tkt-brand-sub").value = tpl.brandSub || "";
@@ -4686,8 +5418,8 @@ function populateAdminPrinterForm() {
 
 function readPrinterFormIntoConfig() {
   const imp = adminConfig.printing;
-  const tplKey = state.editingPrinterTpl || "cliente";
-  imp.usarTicketCliente = document.getElementById("sw-usar-ticket-cliente").checked;
+  const tplKey = state.editingPrinterTpl === "a4" ? "a4" : "cliente";
+  imp.usarTicketCliente = true;
   imp.autoPrintOnSale = document.getElementById("sw-auto-print-sale").checked;
   imp.paperWidth = document.getElementById("cfg-paper-width").value || "80mm";
   imp.a4ColorMode = document.getElementById("cfg-a4-color").value || "color";
@@ -4711,9 +5443,6 @@ function readPrinterFormIntoConfig() {
 
 function onPrinterConfigLiveChange() {
   readPrinterFormIntoConfig();
-  document.getElementById("lbl-ticket-mode-active").textContent = adminConfig.printing.usarTicketCliente
-    ? "Modo activo: Ticket Comprobante para Cliente"
-    : "Modo activo: Ticket de Control Interno y Despacho";
   renderPrinterLivePreview();
 }
 
@@ -4721,10 +5450,10 @@ function renderPrinterLivePreview() {
   const box = document.getElementById("printer-live-preview-box");
   const badge = document.getElementById("live-preview-badge");
   if (!box) return;
-  const tplKey = state.editingPrinterTpl || "cliente";
+  const tplKey = state.editingPrinterTpl === "a4" ? "a4" : "cliente";
 
   if (badge) {
-    badge.textContent = tplKey === "a4" ? "HOJA A4" : tplKey === "interno" ? "CONTROL INTERNO" : "TICKET CLIENTE";
+    badge.textContent = tplKey === "a4" ? "REPORTE A4" : "TICKET DE VENTA";
   }
 
   const demoSale = {
@@ -4738,31 +5467,32 @@ function renderPrinterLivePreview() {
     total: 155,
     pagado: 100,
     estado: "Por Cancelar",
-    observacion: "Entrega inmediata en mostrador",
+    observacion: "Entrega inmediata",
     items: [
       { cantidad: 2, descripcion: "FILTRO DE PETRÓLEO VOLKSWAGEN", subtotal: 90 },
       { cantidad: 1, descripcion: "JUEGO PASTILLAS DE FRENO", subtotal: 65 }
     ]
   };
 
-  if (tplKey === "a4") {
-    box.innerHTML = generateA4ReportHTML([demoSale], "VISTA PREVIA DE REPORTE A4");
-  } else {
-    box.innerHTML = generateThermalTicketHTML(demoSale, tplKey);
-  }
+  const innerHtml = tplKey === "a4"
+    ? generateA4ReportHTML([demoSale], "REPORTE DE VENTAS")
+    : generateThermalTicketHTML(demoSale);
+
+  box.innerHTML = `<div class="print-zoom-stage" style="--preview-zoom:${state.printPreviewZoom || 1}">${innerHtml}</div>`;
+  updatePreviewZoomUI();
 }
 
 function savePrinterTemplateConfig(e) {
   e.preventDefault();
   readPrinterFormIntoConfig();
   saveAdminConfig();
-  showToast("Configuración y diseño de comprobantes guardados", "success");
+  showToast("Diseño de impresión guardado", "success");
 }
 
 function testPrintCurrentTemplate() {
   readPrinterFormIntoConfig();
   saveAdminConfig();
-  const tplKey = state.editingPrinterTpl || "cliente";
+  const tplKey = state.editingPrinterTpl === "a4" ? "a4" : "cliente";
   const demoSale = {
     id: 108,
     ticket: "TK-000108",
@@ -4782,24 +5512,38 @@ function testPrintCurrentTemplate() {
     applyPrintPageRule("a4");
     const cont = document.getElementById("impresion");
     cont.className = "print-a4";
-    cont.innerHTML = generateA4ReportHTML([demoSale], "PRUEBA DE IMPRESIÓN A4");
+    cont.innerHTML = generateA4ReportHTML([demoSale], "PRUEBA DE IMPRESIÓN");
     window.print();
   } else {
-    printSaleTicketDirect(demoSale, tplKey);
+    printSaleTicketDirect(demoSale);
   }
 }
 
-// 12.3 NOMBRE DE LA PÁGINA, SLOGAN, ICONO DE PESTAÑA (FAVICON) Y LOGO
+// 12.3 NOMBRE DE LA PÁGINA, COLOR, SLOGAN, ICONO DE PESTAÑA (FAVICON) Y LOGO
+function toggleBrandCustomColorPickers() {
+  const mode = document.getElementById("cfg-brand-color-mode")?.value || "AUTO";
+  const isCustom = mode === "CUSTOM";
+  document.getElementById("cfg-brand-color-light-box")?.classList.toggle("hidden", !isCustom);
+  document.getElementById("cfg-brand-color-dark-box")?.classList.toggle("hidden", !isCustom);
+}
+
 function populateAdminBrandForm() {
   const nameEl = document.getElementById("cfg-brand-name");
   const subEl = document.getElementById("cfg-brand-sub");
   const titleEl = document.getElementById("cfg-page-title");
   const rucEl = document.getElementById("cfg-brand-ruc");
+  const colorModeEl = document.getElementById("cfg-brand-color-mode");
+  const colorLightEl = document.getElementById("cfg-brand-color-light");
+  const colorDarkEl = document.getElementById("cfg-brand-color-dark");
 
   if (nameEl) nameEl.value = adminConfig.brand.name || "ANAROSA";
   if (subEl) subEl.value = adminConfig.brand.subtitle || "REPUESTOS Y ACCESORIOS";
   if (titleEl) titleEl.value = adminConfig.brand.pageTitle || "";
   if (rucEl) rucEl.value = adminConfig.brand.ruc || "";
+  if (colorModeEl) colorModeEl.value = adminConfig.brand.colorMode || "AUTO";
+  if (colorLightEl) colorLightEl.value = adminConfig.brand.colorLight || "#0c1424";
+  if (colorDarkEl) colorDarkEl.value = adminConfig.brand.colorDark || "#f8fafc";
+  toggleBrandCustomColorPickers();
   applyBrandIdentityToDOM();
 }
 
@@ -4810,14 +5554,19 @@ function saveBrandIdentityForm(e) {
   const newSub = (document.getElementById("cfg-brand-sub").value || "").trim() || "REPUESTOS Y ACCESORIOS";
   const newTitle = (document.getElementById("cfg-page-title")?.value || "").trim();
   const newRuc = (document.getElementById("cfg-brand-ruc").value || "").trim();
+  const colorMode = document.getElementById("cfg-brand-color-mode")?.value || "AUTO";
+  const colorLight = document.getElementById("cfg-brand-color-light")?.value || "#0c1424";
+  const colorDark = document.getElementById("cfg-brand-color-dark")?.value || "#f8fafc";
 
   adminConfig.brand.name = newName;
   adminConfig.brand.subtitle = newSub;
   adminConfig.brand.pageTitle = newTitle;
   adminConfig.brand.ruc = newRuc;
+  adminConfig.brand.colorMode = colorMode;
+  adminConfig.brand.colorLight = colorLight;
+  adminConfig.brand.colorDark = colorDark;
 
-  // Sincronizar también el encabezado de tickets si mantenían el nombre anterior
-  ["cliente", "interno", "a4"].forEach(k => {
+  ["cliente", "a4"].forEach(k => {
     const tpl = adminConfig.printing?.templates?.[k];
     if (tpl && (!tpl.brandTitle || tpl.brandTitle.toUpperCase() === prevName)) {
       tpl.brandTitle = newName.toUpperCase();
@@ -4827,7 +5576,22 @@ function saveBrandIdentityForm(e) {
   saveAdminConfig();
   applyBrandIdentityToDOM();
   renderPrinterLivePreview();
-  showToast("Nombre de página y slogan actualizados con éxito", "success");
+  showToast("Nombre, color y slogan actualizados", "success");
+}
+
+function restoreOriginalCompanyLogo() {
+  adminConfig.brand.logoDataUrl = "";
+  saveAdminConfig();
+  applyBrandIdentityToDOM();
+  renderPrinterLivePreview();
+  showToast("Logo original de la empresa restaurado", "info");
+}
+
+function restoreOriginalFavicon() {
+  adminConfig.brand.faviconDataUrl = "favicon.svg";
+  saveAdminConfig();
+  applyBrandIdentityToDOM();
+  showToast("Icono de pestaña (Favicon) original restaurado", "info");
 }
 
 function restoreDefaultBranding() {
@@ -4836,9 +5600,12 @@ function restoreDefaultBranding() {
   adminConfig.brand.name = "ANAROSA";
   adminConfig.brand.subtitle = "REPUESTOS Y ACCESORIOS";
   adminConfig.brand.pageTitle = "";
+  adminConfig.brand.colorMode = "AUTO";
+  adminConfig.brand.colorLight = "#0c1424";
+  adminConfig.brand.colorDark = "#f8fafc";
   saveAdminConfig();
   populateAdminBrandForm();
-  showToast("Nombre, slogan, logo e icono originales restaurados", "info");
+  showToast("Identidad, logo e icono originales restaurados", "info");
 }
 
 async function changeBrandLogo() {
@@ -4875,6 +5642,8 @@ function populateAdminPrivacyForm() {
   const p = adminConfig.privacy;
   const w = adminConfig.workflow;
   document.getElementById("cfg-inactivity-minutes").value = String(p.inactivityMinutes ?? 15);
+  const lockLogoutEl = document.getElementById("cfg-lock-logout-minutes");
+  if (lockLogoutEl) lockLogoutEl.value = String(p.lockLogoutMinutes ?? 3);
   document.getElementById("cfg-mask-passwords").checked = Boolean(p.maskPasswords);
   document.getElementById("cfg-lockout-3-tries").checked = Boolean(p.lockoutAfter3Tries);
   document.getElementById("cfg-privacy-blur-default").checked = Boolean(p.privacyBlurDefault);
@@ -4891,6 +5660,7 @@ function populateAdminPrivacyForm() {
 function savePrivacyAndWorkflowSettings() {
   adminConfig.privacy = {
     inactivityMinutes: Number(document.getElementById("cfg-inactivity-minutes").value ?? 15),
+    lockLogoutMinutes: Number(document.getElementById("cfg-lock-logout-minutes")?.value ?? 3),
     maskPasswords: document.getElementById("cfg-mask-passwords").checked,
     lockoutAfter3Tries: document.getElementById("cfg-lockout-3-tries").checked,
     privacyBlurDefault: document.getElementById("cfg-privacy-blur-default").checked,
@@ -5158,7 +5928,26 @@ CREATE TABLE IF NOT EXISTS public.billetera_personal (
 CREATE INDEX IF NOT EXISTS idx_billetera_personal_user_fecha
   ON public.billetera_personal (username, fecha DESC);
 
--- 3. TABLA DE CONFIGURACIÓN E IDENTIDAD DE LA PÁGINA (NOMBRE, SLOGAN, TEMA, TICKETS)
+-- 3. TABLA DE PRÉSTAMOS Y DEUDAS PERSONALES (CON CONTROL DE FECHA LÍMITE Y RETRASO)
+CREATE TABLE IF NOT EXISTS public.billetera_prestamos (
+  id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  username TEXT NOT NULL,
+  tipo TEXT NOT NULL DEFAULT 'YO_DEBO' CHECK (tipo IN ('YO_DEBO', 'ME_DEBEN')),
+  persona TEXT NOT NULL,
+  monto NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (monto >= 0),
+  medio_pago TEXT NOT NULL DEFAULT 'EFECTIVO',
+  fecha_prestamo DATE NOT NULL DEFAULT CURRENT_DATE,
+  fecha_vencimiento DATE NOT NULL DEFAULT CURRENT_DATE,
+  estado TEXT NOT NULL DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'PAGADO')),
+  fecha_pagado DATE,
+  observacion TEXT DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_billetera_prestamos_user_venc
+  ON public.billetera_prestamos (username, fecha_vencimiento ASC);
+
+-- 4. TABLA DE CONFIGURACIÓN E IDENTIDAD DE LA PÁGINA (NOMBRE, SLOGAN, TEMA, TICKETS)
 CREATE TABLE IF NOT EXISTS public.configuracion_sistema (
   id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   page_name TEXT NOT NULL DEFAULT 'ANAROSA',
@@ -5177,9 +5966,10 @@ INSERT INTO public.configuracion_sistema (id, page_name, company_slogan)
 VALUES (1, 'ANAROSA', 'REPUESTOS Y ACCESORIOS')
 ON CONFLICT (id) DO NOTHING;
 
--- 4. PERMISOS POSTGREST / RLS PARA ACCESO DESDE LA APP WEB (ANON / AUTHENTICATED)
+-- 5. PERMISOS POSTGREST / RLS PARA ACCESO DESDE LA APP WEB (ANON / AUTHENTICATED)
 ALTER TABLE public.billetera_categorias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billetera_personal ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.billetera_prestamos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.configuracion_sistema ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "acceso_postgrest_billetera_categorias" ON public.billetera_categorias;
@@ -5196,6 +5986,13 @@ CREATE POLICY "acceso_postgrest_billetera_personal"
   USING (true)
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "acceso_postgrest_billetera_prestamos" ON public.billetera_prestamos;
+CREATE POLICY "acceso_postgrest_billetera_prestamos"
+  ON public.billetera_prestamos FOR ALL
+  TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+
 DROP POLICY IF EXISTS "acceso_postgrest_configuracion_sistema" ON public.configuracion_sistema;
 CREATE POLICY "acceso_postgrest_configuracion_sistema"
   ON public.configuracion_sistema FOR ALL
@@ -5206,6 +6003,8 @@ CREATE POLICY "acceso_postgrest_configuracion_sistema"
 GRANT ALL ON TABLE public.billetera_categorias TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.billetera_personal TO anon, authenticated, service_role;
 GRANT USAGE, SELECT ON SEQUENCE public.billetera_personal_id_seq TO anon, authenticated, service_role;
+GRANT ALL ON TABLE public.billetera_prestamos TO anon, authenticated, service_role;
+GRANT USAGE, SELECT ON SEQUENCE public.billetera_prestamos_id_seq TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.configuracion_sistema TO anon, authenticated, service_role;
 
 -- Recargar caché de esquema de PostgREST en Supabase
