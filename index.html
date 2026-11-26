@@ -38,6 +38,9 @@
   <!-- =========================================================================
        PANTALLA DE INICIO DE SESIÓN (ESTILO JUANCHOS + SEGURIDAD ANAROSA)
        ========================================================================= -->
+  <!-- =========================================================================
+       PANTALLA DE LOGIN ESTILO JUANCHOS (TARJETAS DE USUARIO + PIN PAD EN PANTALLA)
+       ========================================================================= -->
   <div id="login-screen" class="fixed inset-0 sidebar-navy z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto no-print">
     <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-12 rounded-3xl overflow-hidden shadow-2xl border border-slate-700/60 my-auto view-enter">
       <!-- Panel Izquierdo de Marca y Reloj -->
@@ -45,7 +48,7 @@
         <div class="flex items-center justify-between gap-2">
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>Sistema Activo</span>
+            <span>En línea</span>
           </span>
           <button type="button" onclick="toggleTheme()" class="ios-theme-switch" title="Cambiar entre Modo Día y Modo Noche">
             <span class="ios-switch-track">
@@ -58,18 +61,13 @@
         </div>
 
         <div class="my-6 sm:my-10 flex flex-col items-center text-center">
-          <div id="login-brand-logo-wrap" class="w-24 h-24 rounded-2xl bg-white/95 p-3 shadow-lg flex items-center justify-center mb-4">
-            <!-- Se inyecta SVG o Logo personalizado -->
-          </div>
+          <div id="login-brand-logo-wrap" class="w-24 h-24 rounded-2xl bg-white/95 p-2.5 shadow-lg flex items-center justify-center mb-4 overflow-hidden"></div>
           <div id="login-brand-name" class="font-display text-2xl sm:text-3xl font-bold tracking-[0.14em] text-white">
             ANAROSA
           </div>
           <div id="login-brand-sub" class="text-[11px] tracking-[0.2em] text-amber-400 font-semibold mt-1 uppercase">
-            CONTROL DE REPUESTOS Y ACCESORIOS
+            REPUESTOS Y ACCESORIOS
           </div>
-          <p class="text-xs text-slate-400 mt-2 max-w-xs">
-            Gestión en tiempo real de almacén, punto de venta, clientes frecuentes y administración.
-          </p>
         </div>
 
         <div class="pt-4 border-t border-slate-800/90 flex items-end justify-between text-xs text-slate-400">
@@ -77,22 +75,12 @@
             <div id="login-live-clock" class="font-display text-2xl font-bold text-white tabular">00:00</div>
             <div id="login-live-date" class="text-[11px] text-slate-400 capitalize">-</div>
           </div>
-          <span class="text-[10px] font-mono text-slate-500">v4.0 PRO</span>
+          <span class="text-[10px] font-mono text-slate-500">POS</span>
         </div>
       </div>
 
-      <!-- Panel Derecho de Selección de Usuario y Credenciales -->
+      <!-- Panel Derecho: Paso 1 (Perfiles) y Paso 2 (Teclado PIN 4/6 dígitos en pantalla) -->
       <div class="md:col-span-7 bg-white p-6 sm:p-8 flex flex-col justify-center">
-        <div class="mb-4">
-          <h1 class="text-lg sm:text-xl font-bold text-gray-900">Iniciar Sesión</h1>
-          <p class="text-xs text-gray-500 mt-0.5">Selecciona tu perfil rápido o escribe tus credenciales de acceso.</p>
-        </div>
-
-        <!-- Selector rápido de perfiles registrados con su Icono/Avatar -->
-        <div id="login-user-cards" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4 max-h-36 overflow-y-auto pr-1">
-          <!-- Renderizado dinámico -->
-        </div>
-
         <!-- Alerta de bloqueo por 3 intentos fallidos -->
         <div id="login-lockout-banner" class="hidden mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs">
           <div class="flex items-center gap-2 font-bold mb-1">
@@ -100,104 +88,151 @@
             <span>Acceso bloqueado temporalmente</span>
           </div>
           <p class="text-[11px] text-red-700">
-            Superaste los intentos permitidos. Espera <strong id="login-lockout-timer" class="font-mono text-sm underline">01:00</strong> para volver a intentar.
+            Espera <strong id="login-lockout-timer" class="font-mono text-sm underline">01:00</strong> para volver a intentar.
           </p>
         </div>
 
-        <!-- Mensaje de error -->
-        <div id="login-error-msg" class="hidden mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
-          <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
-          <span id="login-error-text">Usuario o contraseña incorrectos.</span>
+        <!-- PASO 1: SELECCIÓN DE CUENTA -->
+        <div id="login-step-users" class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-lg sm:text-xl font-bold text-gray-900">Usuarios Registrados</h1>
+              <p class="text-xs text-gray-500">Toca tu perfil para ingresar tu clave numérica.</p>
+            </div>
+            <button type="button" onclick="openManualLoginStep()" class="text-xs font-semibold text-amber-600 hover:underline">
+              Otro usuario
+            </button>
+          </div>
+
+          <div id="login-user-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-72 overflow-y-auto pr-1"></div>
         </div>
 
-        <form id="login-form" onsubmit="handleLoginSubmit(event)" class="space-y-3.5 text-xs">
-          <div>
-            <label class="block text-gray-700 font-semibold mb-1">Nombre de Usuario</label>
-            <div class="relative">
+        <!-- PASO 2: TECLADO NUMÉRICO PIN EN PANTALLA (4 O 6 DÍGITOS ESTILO JUANCHOS) -->
+        <div id="login-step-pin" class="hidden space-y-3">
+          <div class="flex items-center justify-between">
+            <button type="button" onclick="backToLoginUsersStep()" class="inline-flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-gray-900 px-2.5 py-1.5 rounded-xl bg-gray-100">
+              <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+              <span>Cambiar cuenta</span>
+            </button>
+            <span id="login-attempts-indicator" class="text-[11px] text-gray-400 tabular">Intentos: 0/3</span>
+          </div>
+
+          <!-- Cabecera del Usuario Seleccionado -->
+          <div id="pin-selected-user-header" class="flex items-center gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-200">
+            <div id="pin-user-avatar-wrap"></div>
+            <div class="min-w-0 flex-1">
+              <div id="pin-user-name" class="font-bold text-sm text-gray-900 truncate font-sans">WILLOSIRIS</div>
+              <div id="pin-user-role" class="text-[11px] text-gray-500 truncate">SUPER ADMINISTRADOR</div>
+            </div>
+            <span id="pin-digits-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 font-mono">6 DÍGITOS</span>
+          </div>
+
+          <!-- Campo de usuario manual (solo cuando se pulsa "Otro usuario") -->
+          <form id="login-form" onsubmit="handleLoginSubmit(event)" class="space-y-2">
+            <div id="manual-username-box" class="hidden">
               <input
                 type="text"
                 id="login-username"
                 data-keep-case="true"
                 autocapitalize="none"
                 autocorrect="off"
-                placeholder="Ej. ANAROSA, Admin, WILLOSIRIS"
-                class="input-clean w-full pl-9 py-2.5 text-sm font-sans"
-                required
+                placeholder="Nombre de usuario"
+                class="input-clean w-full py-2 text-xs font-sans"
                 autocomplete="username"
               />
-              <i data-lucide="user" class="w-4 h-4 text-gray-400 absolute left-3 top-3"></i>
             </div>
+            <input
+              type="password"
+              id="login-password"
+              data-keep-case="true"
+              data-digits-only="true"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              maxlength="8"
+              class="sr-only"
+              autocomplete="current-password"
+            />
+            <input type="checkbox" id="login-remember" class="hidden" checked />
+            <button type="submit" id="login-submit-btn" class="hidden">Ingresar</button>
+          </form>
+
+          <!-- Puntos indicadores de PIN (4 o 6 dígitos) -->
+          <div id="login-pin-dots" class="pin-dots-row" aria-hidden="true"></div>
+
+          <!-- Mensaje de error -->
+          <div id="login-error-msg" class="hidden p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center justify-center gap-2 text-center">
+            <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+            <span id="login-error-text">PIN incorrecto.</span>
           </div>
 
-          <div>
-            <label class="block text-gray-700 font-semibold mb-1">Contraseña / PIN</label>
-            <div class="relative">
-              <input
-                type="password"
-                id="login-password"
-                data-keep-case="true"
-                placeholder="••••••••"
-                class="input-clean w-full pl-9 pr-16 py-2.5 text-sm font-sans"
-                required
-                autocomplete="current-password"
-              />
-              <i data-lucide="lock" class="w-4 h-4 text-gray-400 absolute left-3 top-3"></i>
-              <div class="absolute right-2 top-2 flex items-center gap-1">
-                <button type="button" onclick="openTouchNumpadForInput('login-password', 'integer')" class="p-1 text-gray-400 hover:text-gray-700 rounded sm:hidden" title="Teclado numérico">
-                  <i data-lucide="calculator" class="w-4 h-4"></i>
-                </button>
-                <button type="button" onclick="togglePasswordVisibility('login-password', 'login-eye-icon')" class="p-1 text-gray-400 hover:text-gray-700 rounded" title="Mostrar / Ocultar contraseña">
-                  <i id="login-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
-                </button>
-              </div>
-            </div>
+          <!-- Teclado Numérico en Pantalla -->
+          <div class="juanchos-pin-pad" aria-label="Teclado numérico de acceso">
+            <button type="button" onclick="pressLoginPinKey('1')" class="juanchos-pin-key">1</button>
+            <button type="button" onclick="pressLoginPinKey('2')" class="juanchos-pin-key">2</button>
+            <button type="button" onclick="pressLoginPinKey('3')" class="juanchos-pin-key">3</button>
+            <button type="button" onclick="pressLoginPinKey('4')" class="juanchos-pin-key">4</button>
+            <button type="button" onclick="pressLoginPinKey('5')" class="juanchos-pin-key">5</button>
+            <button type="button" onclick="pressLoginPinKey('6')" class="juanchos-pin-key">6</button>
+            <button type="button" onclick="pressLoginPinKey('7')" class="juanchos-pin-key">7</button>
+            <button type="button" onclick="pressLoginPinKey('8')" class="juanchos-pin-key">8</button>
+            <button type="button" onclick="pressLoginPinKey('9')" class="juanchos-pin-key">9</button>
+            <button type="button" onclick="pressLoginPinKey('BACK')" class="juanchos-pin-key key-del" aria-label="Borrar dígito">
+              <i data-lucide="delete" class="w-5 h-5"></i>
+            </button>
+            <button type="button" onclick="pressLoginPinKey('0')" class="juanchos-pin-key">0</button>
+            <button type="button" onclick="pressLoginPinKey('OK')" class="juanchos-pin-key key-ok" aria-label="Ingresar">
+              <i data-lucide="check" class="w-5 h-5"></i>
+            </button>
           </div>
-
-          <div class="flex items-center justify-between pt-1">
-            <label class="inline-flex items-center gap-2 cursor-pointer select-none text-gray-700">
-              <input type="checkbox" id="login-remember" class="rounded border-gray-300" />
-              <span>Recordar mi usuario</span>
-            </label>
-            <span id="login-attempts-indicator" class="text-[11px] text-gray-400 tabular">Intentos: 0/3</span>
-          </div>
-
-          <button type="submit" id="login-submit-btn" class="w-full btn-accent py-3 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm mt-2">
-            <span>Ingresar al Sistema</span>
-            <i data-lucide="arrow-right" class="w-4 h-4"></i>
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- =========================================================================
-       MODAL DE BLOQUEO POR INACTIVIDAD
+       MODAL DE BLOQUEO POR INACTIVIDAD (CON CIERRE AUTOMÁTICO DE SESIÓN)
        ========================================================================= -->
   <div id="inactivity-lock-screen" class="fixed inset-0 bg-[#090d16]/95 backdrop-blur-md z-[100] hidden items-center justify-center p-4 no-print">
     <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-200 text-center view-enter">
       <div id="lock-screen-avatar-wrap" class="mx-auto mb-3 flex justify-center"></div>
-      <h3 class="text-base font-bold text-gray-900">Sesión en Pausa por Seguridad</h3>
+      <h3 class="text-base font-bold text-gray-900">Sesión en Pausa</h3>
       <p class="text-xs text-gray-500 mt-1">
-        Ingresa la contraseña de <strong id="lock-screen-username" class="text-gray-900">ANAROSA</strong> para continuar trabajando donde lo dejaste.
+        Ingresa el PIN de <strong id="lock-screen-username" class="text-gray-900">ANAROSA</strong> para continuar.
       </p>
 
+      <div id="lock-auto-logout-wrap" class="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold">
+        <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+        <span>Cierre de sesión en: <strong id="lock-auto-logout-timer" class="font-mono tabular">03:00</strong></span>
+      </div>
+
       <div id="unlock-error-msg" class="hidden mt-3 p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
-        Contraseña incorrecta.
+        PIN incorrecto.
       </div>
 
       <form onsubmit="handleUnlockSession(event)" class="mt-4 space-y-3 text-left text-xs">
         <div class="relative">
-          <input type="password" id="unlock-password" data-keep-case="true" placeholder="Ingresa tu contraseña" class="input-clean w-full pr-10 py-2.5 text-sm font-sans" required />
+          <input
+            type="password"
+            id="unlock-password"
+            data-keep-case="true"
+            data-digits-only="true"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength="8"
+            placeholder="PIN numérico"
+            class="input-clean w-full pr-10 py-2.5 text-center text-base font-mono tracking-widest"
+            required
+          />
           <button type="button" onclick="togglePasswordVisibility('unlock-password', 'unlock-eye-icon')" class="absolute right-2.5 top-2.5 p-1 text-gray-400 hover:text-gray-700">
             <i id="unlock-eye-icon" data-lucide="eye" class="w-4 h-4"></i>
           </button>
         </div>
-        <button type="submit" class="w-full btn-accent py-2.5 rounded-xl font-bold">
-          Desbloquear Sesión
+        <button type="submit" class="w-full btn-accent py-2.5 rounded-xl font-bold allow-readonly">
+          Desbloquear
         </button>
       </form>
 
-      <button onclick="logoutToLoginScreen()" class="mt-3 text-xs text-gray-500 hover:text-gray-900 underline">
+      <button onclick="logoutToLoginScreen()" class="mt-3 text-xs text-gray-500 hover:text-gray-900 underline allow-readonly">
         Cambiar de usuario / Cerrar sesión
       </button>
     </div>
@@ -375,6 +410,12 @@
           <span id="desktop-sidebar-toggle-label" class="hidden xl:inline">Ocultar Menú</span>
         </button>
 
+        <!-- Identidad Sincronizada en la Barra Superior -->
+        <button type="button" onclick="switchTab('inicio')" class="hidden sm:inline-flex items-center gap-2 pr-2 border-r border-gray-200 text-left flex-shrink-0">
+          <span id="header-brand-logo-wrap" class="w-7 h-7 rounded-lg bg-white border border-gray-200 p-0.5 flex items-center justify-center overflow-hidden flex-shrink-0"></span>
+          <span id="header-brand-name" class="font-display font-bold text-xs tracking-wider truncate max-w-[140px]">ANAROSA</span>
+        </button>
+
         <span id="sync-status-badge" class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold truncate max-w-[140px] sm:max-w-none">
           <span id="sync-status-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
           <span id="sync-status-text" class="truncate">Supabase Conectado</span>
@@ -403,6 +444,11 @@
           </span>
           <span class="theme-mode-label">Día</span>
         </button>
+
+        <div id="readonly-mode-badge" class="hidden items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[11px] font-bold">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          <span>SOLO VISTA</span>
+        </div>
 
         <div id="inactivity-countdown-wrap" class="hidden lg:flex items-center gap-1.5 text-[11px] text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-lg" title="Tiempo restante para bloqueo automático por inactividad">
           <i data-lucide="timer" class="w-3.5 h-3.5 text-gray-400"></i>
@@ -969,8 +1015,8 @@
                 <input type="text" id="new-client-nombre" placeholder="Ej. UNIDAD #62 FLOTA JULIACA" class="input-clean w-full text-xs" required />
               </div>
               <div>
-                <label class="block text-gray-700 font-semibold mb-1">TELÉFONO / PLACA / REFERENCIA</label>
-                <input type="text" id="new-client-telefono" inputmode="tel" placeholder="Ej. 951000111" class="input-clean w-full text-xs" />
+                <label class="block text-gray-700 font-semibold mb-1">TELÉFONO / CELULAR</label>
+                <input type="text" id="new-client-telefono" inputmode="numeric" pattern="[0-9]*" data-digits-only="true" data-numpad="integer" data-numpad-label="Teléfono del Cliente" maxlength="15" placeholder="Ej. 951000111" class="input-clean w-full text-xs font-mono" />
               </div>
               <button type="submit" class="w-full btn-accent py-2.5 rounded-xl mt-2">
                 + Guardar Cliente Frecuente
@@ -1070,7 +1116,7 @@
               <input type="hidden" id="wallet-entry-type" value="GASTO" />
               <input type="hidden" id="wallet-selected-cat" value="" />
 
-              <!-- Monto Grande Táctil + Botones Rápidos -->
+              <!-- Monto Grande Táctil + Botones Rápidos (Admite céntimos exactos hasta 2 decimales, ej: 12.12) -->
               <div>
                 <label class="block text-gray-700 font-bold mb-1">MONTO (S/) *</label>
                 <div class="relative">
@@ -1078,8 +1124,8 @@
                   <input
                     type="number"
                     id="wallet-amount"
-                    step="0.10"
-                    min="0.10"
+                    step="0.01"
+                    min="0.01"
                     inputmode="decimal"
                     data-numpad="decimal"
                     data-numpad-label="Monto en Mi Billetera (S/)"
@@ -1169,6 +1215,97 @@
                 <span id="wallet-history-count" class="text-[11px] text-gray-400 font-mono">0 mov.</span>
               </div>
               <div id="wallet-history-list" class="space-y-2.5"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONA DE PRÉSTAMOS Y DEUDAS PERSONALES (AFECTA A MI BILLETERA + ALERTA DE DÍAS DE RETRASO) -->
+        <div data-reveal class="app-surface p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-200">
+            <div>
+              <div class="flex items-center gap-2">
+                <i data-lucide="hand-coins" class="w-5 h-5 text-amber-500"></i>
+                <h2 class="text-base font-bold text-gray-900">Zona de Préstamos y Deudas Personales</h2>
+              </div>
+              <p class="text-xs text-gray-500">Registra si debes a alguien o si prestaste dinero, la fecha acordada de pago y controla los días de retraso.</p>
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs">
+              <div class="px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-bold tabular">
+                Por pagar (Yo debo): <span id="loans-kpi-debo">S/ 0.00</span>
+              </div>
+              <div class="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold tabular">
+                Por cobrar (Me deben): <span id="loans-kpi-medeben">S/ 0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            <form id="wallet-loan-form" onsubmit="handleSaveWalletLoan(event)" class="lg:col-span-5 space-y-3 text-xs p-4 rounded-2xl bg-gray-50 border border-gray-200">
+              <div class="grid grid-cols-2 gap-2 p-1 rounded-xl bg-white border border-gray-200">
+                <button type="button" id="loan-type-debo-btn" onclick="setWalletLoanFormType('YO_DEBO')" class="py-2 rounded-lg font-bold bg-rose-600 text-white">
+                  YO DEBO (ME PRESTARON)
+                </button>
+                <button type="button" id="loan-type-preste-btn" onclick="setWalletLoanFormType('ME_DEBEN')" class="py-2 rounded-lg font-bold text-gray-600">
+                  PRESTÉ (ME DEBEN)
+                </button>
+              </div>
+              <input type="hidden" id="loan-type-input" value="YO_DEBO" />
+
+              <div>
+                <label class="block text-gray-700 font-bold mb-1">PERSONA O ENTIDAD *</label>
+                <input type="text" id="loan-person-input" placeholder="Ej. JUAN PÉREZ, HERMANO, PROVEEDOR..." class="input-clean w-full text-xs font-bold" required />
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-gray-700 font-bold mb-1">MONTO (S/) *</label>
+                  <input type="number" id="loan-amount-input" step="0.01" min="0.01" inputmode="decimal" data-numpad="decimal" data-numpad-label="Monto del Préstamo (S/)" placeholder="0.00" class="input-clean w-full text-sm font-bold tabular" required />
+                </div>
+                <div>
+                  <label class="block text-gray-700 font-bold mb-1">MEDIO</label>
+                  <select id="loan-method-input" class="input-clean w-full text-xs font-semibold">
+                    <option value="EFECTIVO">EFECTIVO</option>
+                    <option value="YAPE / PLIN">YAPE / PLIN</option>
+                    <option value="TARJETA / BANCO">TARJETA / BANCO</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-gray-700 font-semibold mb-1">FECHA DEL PRÉSTAMO</label>
+                  <input type="date" id="loan-start-date" class="input-clean w-full text-xs" required />
+                </div>
+                <div>
+                  <label class="block text-gray-700 font-bold mb-1">FECHA LÍMITE DE PAGO *</label>
+                  <input type="date" id="loan-due-date" class="input-clean w-full text-xs font-bold" required />
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-gray-700 font-semibold mb-1">Nota / Compromiso</label>
+                <input type="text" id="loan-note-input" data-keep-case="true" placeholder="Ej. Pagar a fin de mes, préstamo para compra..." class="input-clean w-full text-xs" />
+              </div>
+
+              <label class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white border border-gray-200 cursor-pointer">
+                <span id="loan-wallet-impact-label" class="text-[11px] font-semibold text-gray-700">Reflejar ahora en mi billetera (+ Ingreso recibido)</span>
+                <input type="checkbox" id="loan-affect-wallet-chk" class="ios-chk" checked />
+              </label>
+
+              <button type="submit" class="w-full btn-accent py-2.5 rounded-xl font-bold allow-readonly">
+                + Registrar Préstamo / Deuda
+              </button>
+            </form>
+
+            <div class="lg:col-span-7 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div id="loan-filter-pills" class="flex gap-1.5 text-xs">
+                  <button type="button" onclick="setWalletLoanFilter('PENDIENTES')" data-lf="PENDIENTES" class="px-3 py-1.5 rounded-xl font-bold btn-accent allow-readonly">Pendientes</button>
+                  <button type="button" onclick="setWalletLoanFilter('TODOS')" data-lf="TODOS" class="px-3 py-1.5 rounded-xl font-bold bg-gray-100 text-gray-700 allow-readonly">Todos</button>
+                </div>
+                <span id="loans-overdue-alert-badge" class="text-xs font-bold text-rose-600"></span>
+              </div>
+              <div id="wallet-loans-list" class="space-y-2.5"></div>
             </div>
           </div>
         </div>
@@ -1296,9 +1433,20 @@
                 </div>
 
                 <div>
-                  <label class="block text-gray-700 font-semibold mb-1">Contraseña de Acceso *</label>
+                  <label class="block text-gray-700 font-semibold mb-1">PIN Numérico (4 o 6 dígitos) *</label>
                   <div class="relative">
-                    <input type="password" id="user-form-password" data-keep-case="true" placeholder="Contraseña o PIN" class="input-clean w-full pr-9 text-xs font-sans" required />
+                    <input
+                      type="password"
+                      id="user-form-password"
+                      data-keep-case="true"
+                      data-digits-only="true"
+                      inputmode="numeric"
+                      pattern="[0-9]*"
+                      maxlength="6"
+                      placeholder="Ej. 1903 o 190324"
+                      class="input-clean w-full pr-9 text-xs font-mono tracking-widest"
+                      required
+                    />
                     <button type="button" onclick="togglePasswordVisibility('user-form-password', 'usr-form-eye')" class="absolute right-2.5 top-2 p-1 text-gray-400 hover:text-gray-700">
                       <i id="usr-form-eye" data-lucide="eye" class="w-4 h-4"></i>
                     </button>
@@ -1306,30 +1454,37 @@
                 </div>
 
                 <div>
-                  <label class="block text-gray-700 font-semibold mb-1">CARGO / ROL DESCRIPTIVO *</label>
-                  <input type="text" id="user-form-role" placeholder="Ej. VENTAS MOSTRADOR / ADMINISTRADOR" class="input-clean w-full text-xs" required />
+                  <label class="block text-gray-700 font-semibold mb-1">CARGO / ROL *</label>
+                  <input type="text" id="user-form-role" placeholder="Ej. VENTAS / SOLO VISTA / ADMIN" class="input-clean w-full text-xs" required />
                 </div>
 
                 <div class="pt-2 border-t border-gray-100 space-y-2.5">
                   <div class="font-bold text-gray-800">PRIVILEGIOS DEL USUARIO:</div>
+                  <label class="flex items-center justify-between gap-2 p-2 rounded-xl bg-amber-50/70 border border-amber-200 cursor-pointer">
+                    <div>
+                      <strong class="block text-gray-900">Modo Solo Vista (Lectura)</strong>
+                      <span class="text-[10px] text-gray-500">Solo puede ver el sistema sin crear, editar ni borrar nada.</span>
+                    </div>
+                    <input type="checkbox" id="perm-solo-vista" class="ios-chk" />
+                  </label>
                   <label class="flex items-center justify-between gap-2 cursor-pointer">
-                    <span>Autorización de Impresión de Tickets</span>
+                    <span>Autorización de Impresión</span>
                     <input type="checkbox" id="perm-imprimir" class="ios-chk" checked />
                   </label>
                   <label class="flex items-center justify-between gap-2 cursor-pointer">
-                    <span>Puede eliminar Historial de Ventas</span>
+                    <span>Eliminar Historial de Ventas</span>
                     <input type="checkbox" id="perm-eliminar-ventas" class="ios-chk" />
                   </label>
                   <label class="flex items-center justify-between gap-2 cursor-pointer">
-                    <span>Puede modificar Precios Compra/Venta</span>
+                    <span>Modificar Precios Compra/Venta</span>
                     <input type="checkbox" id="perm-modificar-precios" class="ios-chk" />
                   </label>
                   <label class="flex items-center justify-between gap-2 cursor-pointer">
-                    <span>Acceso directo a Supabase SQL</span>
+                    <span>Acceso a Supabase SQL</span>
                     <input type="checkbox" id="perm-acceso-sql" class="ios-chk" />
                   </label>
                   <label class="flex items-center justify-between gap-2 cursor-pointer">
-                    <span>Super Admin (Administrar Usuarios)</span>
+                    <span>Super Admin (Usuarios)</span>
                     <input type="checkbox" id="perm-gestionar-usuarios" class="ios-chk" />
                   </label>
                 </div>
@@ -1353,7 +1508,8 @@
                   <thead>
                     <tr class="border-b border-gray-200 bg-gray-50 text-gray-700">
                       <th class="py-3 px-4">Usuario / Icono</th>
-                      <th class="py-3 px-3">Clave</th>
+                      <th class="py-3 px-3">PIN</th>
+                      <th class="py-3 px-3">Modo</th>
                       <th class="py-3 px-3">Impresión</th>
                       <th class="py-3 px-2 text-center">Borrar Ventas</th>
                       <th class="py-3 px-2 text-center">Precios</th>
@@ -1369,42 +1525,34 @@
           </div>
         </div>
 
-        <!-- 9.2 SUB-TAB: IMPRESIÓN DE COMPROBANTES Y REPORTES (ESTILO JUANCHOS) -->
+        <!-- 9.2 SUB-TAB: IMPRESIÓN DE COMPROBANTES Y REPORTES A4 -->
         <div id="adm-impresion" class="adm-subtab hidden space-y-6">
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            <div class="lg:col-span-7 space-y-5">
+            <div class="lg:col-span-6 space-y-5">
               <div class="app-surface p-5 space-y-4 text-xs">
-                <h3 class="text-sm font-bold text-gray-900">1. COMPORTAMIENTO GENERAL DE IMPRESIÓN</h3>
+                <h3 class="text-sm font-bold text-gray-900">1. OPCIONES DE IMPRESIÓN</h3>
                 <div class="space-y-3">
                   <label class="flex items-center justify-between gap-4 p-3 rounded-xl bg-gray-50 border border-gray-200 cursor-pointer">
                     <div>
-                      <strong id="lbl-ticket-mode-active" class="block text-gray-900">Modo activo: Ticket Comprobante para Cliente</strong>
-                      <span class="text-[11px] text-gray-500">Activado = Comprobante formal para Cliente. Desactivado = Ticket de Control Interno y Despacho de Almacén (con código/cliente gigante legible a distancia).</span>
-                    </div>
-                    <input type="checkbox" id="sw-usar-ticket-cliente" class="ios-chk" onchange="onPrinterConfigLiveChange()" checked />
-                  </label>
-
-                  <label class="flex items-center justify-between gap-4 p-3 rounded-xl bg-gray-50 border border-gray-200 cursor-pointer">
-                    <div>
-                      <strong class="block text-gray-900">Imprimir comprobante automáticamente al registrar venta</strong>
-                      <span class="text-[11px] text-gray-500">Abre el diálogo de impresión apenas se confirma una venta en mostrador.</span>
+                      <strong class="block text-gray-900">Imprimir ticket automáticamente al registrar venta</strong>
+                      <span class="text-[11px] text-gray-500">Abre el diálogo de impresión al confirmar una venta.</span>
                     </div>
                     <input type="checkbox" id="sw-auto-print-sale" class="ios-chk" onchange="onPrinterConfigLiveChange()" />
                   </label>
 
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label class="block text-gray-700 font-semibold mb-1">ANCHO DE ROLLO TÉRMICO</label>
+                      <label class="block text-gray-700 font-semibold mb-1">ANCHO DE TICKET</label>
                       <select id="cfg-paper-width" onchange="onPrinterConfigLiveChange()" class="input-clean w-full text-xs font-semibold">
-                        <option value="80mm">80 MM (ESTÁNDAR MOSTRADOR)</option>
-                        <option value="58mm">58 MM (PORTÁTIL / COMPACTO)</option>
+                        <option value="80mm">80 MM</option>
+                        <option value="58mm">58 MM</option>
                       </select>
                     </div>
                     <div>
-                      <label class="block text-gray-700 font-semibold mb-1">MODO DE COLOR EN REPORTE A4</label>
+                      <label class="block text-gray-700 font-semibold mb-1">COLOR EN REPORTE A4</label>
                       <select id="cfg-a4-color" onchange="onPrinterConfigLiveChange()" class="input-clean w-full text-xs font-semibold">
                         <option value="color">A COLORES</option>
-                        <option value="bn">BLANCO Y NEGRO (ESCALA DE GRISES)</option>
+                        <option value="bn">BLANCO Y NEGRO</option>
                       </select>
                     </div>
                   </div>
@@ -1413,24 +1561,20 @@
 
               <form onsubmit="savePrinterTemplateConfig(event)" class="app-surface p-5 space-y-4 text-xs">
                 <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-200">
-                  <div>
-                    <h3 class="text-sm font-bold text-gray-900">2. EDITOR DE PLANTILLAS DE COMPROBANTES</h3>
-                    <p class="text-[11px] text-gray-500">Personaliza encabezados, RUC, dirección y pie para cada formato.</p>
-                  </div>
+                  <h3 class="text-sm font-bold text-gray-900">2. PLANTILLA DE COMPROBANTE Y REPORTE</h3>
                   <div id="tpl-editor-tabs" class="flex gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200">
-                    <button type="button" onclick="switchPrinterTemplateTab('cliente')" data-tpltab="cliente" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold btn-accent">Ticket Cliente</button>
-                    <button type="button" onclick="switchPrinterTemplateTab('interno')" data-tpltab="interno" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600">Control Interno</button>
-                    <button type="button" onclick="switchPrinterTemplateTab('a4')" data-tpltab="a4" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600">Hoja A4</button>
+                    <button type="button" onclick="switchPrinterTemplateTab('cliente')" data-tpltab="cliente" class="px-3 py-1.5 rounded-lg text-[11px] font-bold btn-accent">Ticket de Venta</button>
+                    <button type="button" onclick="switchPrinterTemplateTab('a4')" data-tpltab="a4" class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600">Reporte A4</button>
                   </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label class="block text-gray-700 font-semibold mb-1">TÍTULO / MARCA</label>
+                    <label class="block text-gray-700 font-semibold mb-1">MARCA</label>
                     <input type="text" id="tkt-brand-title" oninput="onPrinterConfigLiveChange()" class="input-clean w-full text-xs font-bold" />
                   </div>
                   <div>
-                    <label class="block text-gray-700 font-semibold mb-1">SUBTÍTULO / RUBRO</label>
+                    <label class="block text-gray-700 font-semibold mb-1">SLOGAN / RUBRO</label>
                     <input type="text" id="tkt-brand-sub" oninput="onPrinterConfigLiveChange()" class="input-clean w-full text-xs" />
                   </div>
                   <div>
@@ -1445,12 +1589,12 @@
                     <input type="text" id="tkt-address" oninput="onPrinterConfigLiveChange()" class="input-clean w-full text-xs" />
                   </div>
                   <div>
-                    <label class="block text-gray-700 font-semibold mb-1">CIUDAD / SEDE</label>
+                    <label class="block text-gray-700 font-semibold mb-1">CIUDAD</label>
                     <input type="text" id="tkt-city" oninput="onPrinterConfigLiveChange()" class="input-clean w-full text-xs" />
                   </div>
                   <div>
                     <label class="block text-gray-700 font-semibold mb-1">TELÉFONO</label>
-                    <input type="text" id="tkt-phone" oninput="onPrinterConfigLiveChange()" class="input-clean w-full text-xs" />
+                    <input type="text" id="tkt-phone" inputmode="numeric" data-digits-only="true" oninput="onPrinterConfigLiveChange()" class="input-clean w-full text-xs font-mono" />
                   </div>
                 </div>
 
@@ -1467,22 +1611,22 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-gray-700 font-semibold mb-1">PIE DE PÁGINA / GARANTÍA</label>
+                    <label class="block text-gray-700 font-semibold mb-1">PIE DE PÁGINA</label>
                     <input type="text" id="tkt-footer" oninput="onPrinterConfigLiveChange()" class="input-clean w-full text-xs" />
                   </div>
                   <div>
-                    <label class="block text-gray-700 font-semibold mb-1">MENSAJE FINAL / NOTA</label>
+                    <label class="block text-gray-700 font-semibold mb-1">MENSAJE FINAL</label>
                     <input type="text" id="tkt-promo" oninput="onPrinterConfigLiveChange()" class="input-clean w-full text-xs" />
                   </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                   <label class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-200 cursor-pointer">
-                    <span class="font-semibold">Mostrar Logo</span>
+                    <span class="font-semibold">Logo</span>
                     <input type="checkbox" id="sw-tkt-logo" class="ios-chk" onchange="onPrinterConfigLiveChange()" checked />
                   </label>
                   <label class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-200 cursor-pointer">
-                    <span class="font-semibold">Desglosar IGV 18%</span>
+                    <span class="font-semibold">IGV 18%</span>
                     <input type="checkbox" id="sw-tkt-igv" class="ios-chk" onchange="onPrinterConfigLiveChange()" />
                   </label>
                   <label class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-200 cursor-pointer">
@@ -1492,22 +1636,30 @@
                 </div>
 
                 <div class="flex flex-wrap gap-2 pt-2">
-                  <button type="submit" class="btn-accent px-5 py-2.5 rounded-xl">Guardar Diseño de Impresión</button>
+                  <button type="submit" class="btn-accent px-5 py-2.5 rounded-xl">Guardar Diseño</button>
                   <button type="button" onclick="testPrintCurrentTemplate()" class="btn-brand px-4 py-2.5 rounded-xl flex items-center gap-1.5">
                     <i data-lucide="printer" class="w-4 h-4"></i>
-                    <span>Probar Impresión Ahora</span>
+                    <span>Probar Impresión</span>
                   </button>
                 </div>
               </form>
             </div>
 
-            <!-- Vista Previa en Vivo -->
-            <div class="lg:col-span-5 app-surface p-5 lg:sticky lg:top-20">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-gray-900">VISTA PREVIA EN VIVO</h3>
-                <span id="live-preview-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">TICKET CLIENTE</span>
+            <!-- Vista Previa en Vivo con Controles de Zoom (- / +) -->
+            <div class="lg:col-span-6 app-surface p-5 lg:sticky lg:top-16">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-bold text-gray-900">VISTA PREVIA</h3>
+                  <span id="live-preview-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">TICKET DE VENTA</span>
+                </div>
+                <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 text-xs">
+                  <button type="button" onclick="changePrintPreviewZoom(-0.12)" class="w-7 h-7 rounded-lg bg-white border border-gray-200 font-bold flex items-center justify-center" title="Alejar">-</button>
+                  <span id="adm-preview-zoom-lbl" class="px-2 font-mono text-[11px] font-bold tabular">100%</span>
+                  <button type="button" onclick="changePrintPreviewZoom(0.12)" class="w-7 h-7 rounded-lg bg-white border border-gray-200 font-bold flex items-center justify-center" title="Acercar">+</button>
+                  <button type="button" onclick="resetPrintPreviewZoom()" class="px-2 py-1 rounded-lg text-[10px] font-semibold text-gray-600 hover:text-gray-900">Ajustar</button>
+                </div>
               </div>
-              <div id="printer-live-preview-box" class="bg-slate-200/70 dark:bg-slate-900/80 rounded-2xl p-4 overflow-x-auto flex justify-center"></div>
+              <div id="printer-live-preview-box" class="print-preview-viewport bg-slate-200/70 dark:bg-slate-900/80 rounded-2xl max-h-[620px]"></div>
             </div>
           </div>
         </div>
@@ -1552,7 +1704,7 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-gray-700 font-semibold mb-1">TÍTULO EN LA PESTAÑA DEL NAVEGADOR (OPCIONAL)</label>
+                    <label class="block text-gray-700 font-semibold mb-1">TÍTULO EN LA PESTAÑA DEL NAVEGADOR</label>
                     <input
                       type="text"
                       id="cfg-page-title"
@@ -1563,11 +1715,13 @@
                     />
                   </div>
                   <div>
-                    <label class="block text-gray-700 font-semibold mb-1">RUC DE LA EMPRESA (OPCIONAL)</label>
+                    <label class="block text-gray-700 font-semibold mb-1">RUC DE LA EMPRESA</label>
                     <input
                       type="text"
                       id="cfg-brand-ruc"
                       inputmode="numeric"
+                      pattern="[0-9]*"
+                      data-digits-only="true"
                       data-numpad="integer"
                       data-numpad-label="Número de RUC"
                       maxlength="11"
@@ -1577,30 +1731,56 @@
                   </div>
                 </div>
 
+                <!-- Color del Nombre de la Página con Contraste Automático Día / Noche -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div>
+                    <label class="block text-gray-700 font-semibold mb-1">COLOR DEL NOMBRE</label>
+                    <select id="cfg-brand-color-mode" onchange="toggleBrandCustomColorPickers()" class="input-clean w-full text-xs font-semibold">
+                      <option value="AUTO">AUTOMÁTICO (DÍA / NOCHE)</option>
+                      <option value="ACCENT">USAR COLOR DE ACENTO</option>
+                      <option value="CUSTOM">PERSONALIZADO DÍA / NOCHE</option>
+                    </select>
+                  </div>
+                  <div id="cfg-brand-color-light-box" class="hidden">
+                    <label class="block text-gray-700 font-semibold mb-1">COLOR EN MODO DÍA</label>
+                    <input type="color" id="cfg-brand-color-light" value="#0c1424" class="h-9 w-full rounded-lg border border-gray-300 cursor-pointer p-1 bg-white" />
+                  </div>
+                  <div id="cfg-brand-color-dark-box" class="hidden">
+                    <label class="block text-gray-700 font-semibold mb-1">COLOR EN MODO NOCHE</label>
+                    <input type="color" id="cfg-brand-color-dark" value="#f8fafc" class="h-9 w-full rounded-lg border border-gray-300 cursor-pointer p-1 bg-white" />
+                  </div>
+                </div>
+
                 <div class="flex flex-wrap items-center gap-2 pt-1">
                   <button type="submit" class="btn-accent px-5 py-2.5 rounded-xl flex items-center gap-1.5">
                     <i data-lucide="check" class="w-4 h-4"></i>
                     <span>Guardar Nombre y Slogan</span>
                   </button>
                   <button type="button" onclick="restoreDefaultBranding()" class="px-3.5 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold">
-                    Restaurar original
+                    Restaurar todo
                   </button>
                 </div>
               </form>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-200">
-                <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 flex flex-col items-center text-center gap-2.5">
+                <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 flex flex-col items-center text-center gap-2">
                   <div id="adm-preview-logo" class="w-20 h-20 rounded-2xl bg-white border border-gray-200 p-2 flex items-center justify-center overflow-hidden shadow-sm"></div>
-                  <div class="font-bold text-gray-900">Logo Principal del Sistema</div>
+                  <div class="font-bold text-gray-900">Logo Principal (PNG / SVG)</div>
                   <button type="button" onclick="changeBrandLogo()" class="w-full btn-brand py-2 px-3 rounded-xl">Subir / Cambiar Logo 1:1</button>
+                  <button type="button" onclick="restoreOriginalCompanyLogo()" class="w-full py-1.5 px-3 rounded-xl border border-gray-300 bg-white hover:bg-gray-100 text-[11px] font-semibold text-gray-700">
+                    Restaurar Logo Original (favicon)
+                  </button>
                 </div>
 
-                <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 flex flex-col items-center text-center gap-2.5">
+                <div class="p-4 rounded-2xl bg-gray-50 border border-gray-200 flex flex-col items-center text-center gap-2">
                   <div class="w-20 h-20 rounded-2xl bg-white border border-gray-200 p-3 flex items-center justify-center overflow-hidden shadow-sm">
                     <img id="adm-preview-favicon" src="favicon.svg" alt="Favicon actual" class="w-12 h-12 object-contain" />
                   </div>
                   <div class="font-bold text-gray-900">Icono de Pestaña (Favicon)</div>
                   <button type="button" onclick="changePageFavicon()" class="w-full btn-accent py-2 px-3 rounded-xl">Cambiar Icono de Pestaña</button>
+                  <button type="button" onclick="restoreOriginalFavicon()" class="w-full py-1.5 px-3 rounded-xl border border-gray-300 bg-white hover:bg-gray-100 text-[11px] font-semibold text-gray-700">
+                    Restaurar Favicon Original
+                  </button>
                 </div>
               </div>
             </div>
@@ -1663,15 +1843,27 @@
                 <h3 class="text-sm font-bold text-gray-900">PRIVACIDAD Y SEGURIDAD DE SESIÓN</h3>
               </div>
 
-              <div>
-                <label class="block text-gray-700 font-semibold mb-1">TIEMPO DE AUTO-BLOQUEO POR INACTIVIDAD</label>
-                <select id="cfg-inactivity-minutes" onchange="savePrivacyAndWorkflowSettings()" class="input-clean w-full text-xs font-semibold">
-                  <option value="5">5 MINUTOS (MÁXIMA SEGURIDAD)</option>
-                  <option value="15" selected>15 MINUTOS (RECOMENDADO)</option>
-                  <option value="30">30 MINUTOS</option>
-                  <option value="180">3 HORAS (TURNO CONTINUO)</option>
-                  <option value="0">NUNCA BLOQUEAR AUTOMÁTICAMENTE</option>
-                </select>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-gray-700 font-semibold mb-1">1. AUTO-BLOQUEO POR INACTIVIDAD</label>
+                  <select id="cfg-inactivity-minutes" onchange="savePrivacyAndWorkflowSettings()" class="input-clean w-full text-xs font-semibold">
+                    <option value="5">5 MINUTOS</option>
+                    <option value="15" selected>15 MINUTOS</option>
+                    <option value="30">30 MINUTOS</option>
+                    <option value="180">3 HORAS</option>
+                    <option value="0">DESACTIVADO</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-gray-700 font-semibold mb-1">2. CIERRE DE SESIÓN TRAS BLOQUEO</label>
+                  <select id="cfg-lock-logout-minutes" onchange="savePrivacyAndWorkflowSettings()" class="input-clean w-full text-xs font-semibold">
+                    <option value="1">1 MINUTO</option>
+                    <option value="3" selected>3 MINUTOS (RECOMENDADO)</option>
+                    <option value="5">5 MINUTOS</option>
+                    <option value="10">10 MINUTOS</option>
+                    <option value="0">NO CERRAR SESIÓN</option>
+                  </select>
+                </div>
               </div>
 
               <label class="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 border border-gray-200 cursor-pointer">
@@ -2015,31 +2207,33 @@
     </div>
   </div>
 
-  <!-- MODAL: VISTA PREVIA E IMPRESIÓN DE COMPROBANTE / REPORTE (80mm, 58mm, A4) -->
+  <!-- MODAL: VISTA PREVIA E IMPRESIÓN DE COMPROBANTE / REPORTE (CON ZOOM) -->
   <div id="modal-print-report" class="fixed inset-0 bg-black/65 backdrop-blur-xs z-[60] hidden items-center justify-center p-3 sm:p-5 overflow-y-auto no-print">
-    <div class="bg-white rounded-2xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-gray-200 my-auto max-h-[92dvh] flex flex-col view-enter">
+    <div class="bg-white rounded-2xl max-w-5xl w-full p-5 sm:p-6 shadow-2xl border border-gray-200 my-auto max-h-[92dvh] flex flex-col view-enter">
       <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-gray-200">
         <div>
           <h3 id="modal-print-title" class="text-base font-bold text-gray-900">Vista Previa de Impresión</h3>
-          <p id="modal-print-subtitle" class="text-xs text-gray-500">Selecciona el formato y envía a tu ticketera térmica o guarda como PDF.</p>
+          <p id="modal-print-subtitle" class="text-xs text-gray-500">Comprobante listo para imprimir o guardar en PDF.</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <!-- Selector en vivo cuando es un comprobante de venta -->
-          <div id="modal-ticket-type-switcher" class="hidden items-center gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 text-[11px]">
-            <button type="button" onclick="switchModalTicketFormat('cliente')" data-mtfmt="cliente" class="px-2.5 py-1 rounded-lg font-bold btn-accent">Cliente</button>
-            <button type="button" onclick="switchModalTicketFormat('interno')" data-mtfmt="interno" class="px-2.5 py-1 rounded-lg font-semibold text-gray-600">Control Interno</button>
+          <!-- Controles de Zoom (- / +) -->
+          <div class="inline-flex items-center gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200 text-xs">
+            <button type="button" onclick="changePrintPreviewZoom(-0.12)" class="w-7 h-7 rounded-lg bg-white border border-gray-200 font-bold flex items-center justify-center allow-readonly" title="Alejar">-</button>
+            <span id="modal-preview-zoom-lbl" class="px-2 font-mono text-[11px] font-bold tabular">100%</span>
+            <button type="button" onclick="changePrintPreviewZoom(0.12)" class="w-7 h-7 rounded-lg bg-white border border-gray-200 font-bold flex items-center justify-center allow-readonly" title="Acercar">+</button>
+            <button type="button" onclick="resetPrintPreviewZoom()" class="px-2 py-1 rounded-lg text-[10px] font-semibold text-gray-600 hover:text-gray-900 allow-readonly">100%</button>
           </div>
-          <button onclick="executePrintFromModal()" class="btn-accent text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow">
+          <button onclick="executePrintFromModal()" class="btn-accent text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shadow allow-readonly">
             <i data-lucide="printer" class="w-4 h-4"></i>
             <span>Imprimir / Guardar PDF</span>
           </button>
-          <button onclick="closePrintReportModal()" class="px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-600 hover:bg-gray-50">
+          <button onclick="closePrintReportModal()" class="px-3 py-2 rounded-xl border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 allow-readonly">
             Cerrar
           </button>
         </div>
       </div>
 
-      <div id="print-report-area" class="overflow-y-auto p-4 sm:p-6 bg-slate-100/80 dark:bg-slate-900/70 rounded-xl mt-3 flex justify-center"></div>
+      <div id="print-report-area" class="print-preview-viewport flex-1 bg-slate-100/80 dark:bg-slate-900/70 rounded-xl mt-3"></div>
     </div>
   </div>
 
@@ -2082,8 +2276,8 @@
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center flex-shrink-0"><i data-lucide="printer" class="w-4 h-4"></i></div>
             <div>
-              <div class="font-bold text-gray-900">Imprimir Ticket Térmico (Cliente / Interno)</div>
-              <div class="text-[10px] text-gray-500">Formato 80mm / 58mm con vista previa inmediata</div>
+              <div class="font-bold text-gray-900">Imprimir Ticket de Venta</div>
+              <div class="text-[10px] text-gray-500">Vista previa inmediata</div>
             </div>
           </div>
           <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
